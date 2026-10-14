@@ -29,7 +29,7 @@ Both Gradle Plugin and standalone JAR integration are supported.
 
 #### 1.1 Add the plugin
 
-Use Gradle plugins DSL with a version catalog. The examples use the Maven Central coordinates for version `1.1.0`, usable once that version is published.
+Use Gradle plugins DSL with a version catalog.
 
 Configure repositories in settings.gradle:
 

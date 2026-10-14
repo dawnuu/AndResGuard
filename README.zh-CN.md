@@ -29,7 +29,7 @@
 
 #### 1. 接入插件
 
-推荐使用 Gradle plugins DSL 和版本目录接入。以下以 `1.1.0` 的 Maven Central 发布坐标为例，该版本发布后即可使用。
+推荐使用 Gradle plugins DSL 和版本目录接入。
 
 在 `settings.gradle` 配置仓库：
 
