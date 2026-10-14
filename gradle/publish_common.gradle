@@ -20,7 +20,7 @@ def centralRelease = (resolvePublishingValue('centralRelease', 'MAVEN_CENTRAL_RE
 def signingKey = resolvePublishingValue('signingKey', 'MAVEN_CENTRAL_SIGNING_KEY')
 def signingPassword = resolvePublishingValue('signingPassword', 'MAVEN_CENTRAL_SIGNING_PASSWORD')
 
-def projectName = project.name == 'core' ? 'AabResGuard Core' : 'AabResGuard Gradle Plugin'
+def projectName = project.name == 'core' ? 'AndResGuard Core' : 'AndResGuard Gradle Plugin'
 def projectDescription = project.name == 'core'
         ? 'The core command-line tool for obfuscating Android App Bundle resources.'
         : 'Gradle plugin for obfuscating Android App Bundle resources.'
@@ -30,7 +30,7 @@ afterEvaluate {
         pom {
             name = projectName
             description = projectDescription
-            url = 'https://github.com/dawnuu/AabResGuard'
+            url = 'https://github.com/dawnuu/AndResGuard'
             licenses {
                 license {
                     name = 'Apache License, Version 2.0'
@@ -46,9 +46,9 @@ afterEvaluate {
                 }
             }
             scm {
-                connection = 'scm:git:git://github.com/dawnuu/AabResGuard.git'
-                developerConnection = 'scm:git:ssh://git@github.com/dawnuu/AabResGuard.git'
-                url = 'https://github.com/dawnuu/AabResGuard'
+                connection = 'scm:git:git://github.com/dawnuu/AndResGuard.git'
+                developerConnection = 'scm:git:ssh://git@github.com/dawnuu/AndResGuard.git'
+                url = 'https://github.com/dawnuu/AndResGuard'
             }
         }
     }

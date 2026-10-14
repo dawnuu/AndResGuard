@@ -87,4 +87,4 @@
 -dontshrink
 #保护泛型
 -keepattributes Signature
--keep class com.bytedance.android.aabresguard.AabResGuardMain { *; }
+-keep class com.bytedance.android.andresguard.AndResGuardMain { *; }

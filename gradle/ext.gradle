@@ -2,13 +2,13 @@ ext {
     GROUP_ID = "io.github.dawnuu"
     bintrayInfo = [
             repo     : [
-                    name       : "AabResGuard",
+                    name       : "AndResGuard",
                     groupId    : GROUP_ID,
-                    artifactId : "aabresguard",
+                    artifactId : "andresguard",
                     description: "The tool of obfuscated aab resources",
                     packaging  : "jar",
-                    siteUrl    : "https://github.com/dawnuu/AabResGuard",
-                    gitUrl     : "https://github.com/dawnuu/AabResGuard.git",
+                    siteUrl    : "https://github.com/dawnuu/AndResGuard",
+                    gitUrl     : "https://github.com/dawnuu/AndResGuard.git",
                     userOrg    :  System.getProperty("bintrayInfo.userOrg", "****"),
             ],
             developer: [
@@ -19,7 +19,7 @@ ext {
                     apikey: System.getProperty("bintrayInfo.apiKey", "*************")
             ],
             javadoc  : [
-                    name: "AabResGuard"
+                    name: "AndResGuard"
             ]
     ]
 }

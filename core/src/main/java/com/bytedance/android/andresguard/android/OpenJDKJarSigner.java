@@ -1,0 +1,154 @@
+package com.bytedance.android.andresguard.android;
+
+import com.bytedance.android.andresguard.utils.FileUtils;
+import com.google.common.base.Joiner;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Logger;
+
+import static com.android.tools.build.bundletool.model.utils.files.FilePreconditions.checkFileExistsAndReadable;
+
+/**
+ * Created by YangJing on 2019/10/18 .
+ * Email: yangjing.yeoh@bytedance.com
+ */
+public class OpenJDKJarSigner {
+
+    private static String jarSignerExecutable = SdkConstants.currentPlatform() == SdkConstants.PLATFORM_WINDOWS
+            ? "jarsigner.exe" : "jarsigner";
+    private static Logger logger = Logger.getLogger(OpenJDKJarSigner.class.getName());
+
+
+    public void sign(File toBeSigned, JarSigner.Signature signature) throws IOException, InterruptedException {
+        checkFileExistsAndReadable(toBeSigned.toPath());
+        checkFileExistsAndReadable(signature.storeFile);
+        File jarSigner = locatedJarSigner();
+        List<String> args = new ArrayList<>();
+        if (jarSigner != null) {
+            args.add(jarSigner.getAbsolutePath());
+        } else {
+            args.add(jarSignerExecutable);
+        }
+        args.add("-keystore");
+        args.add(signature.storeFile.toFile().getAbsolutePath());
+
+        File keyStorePasswordFile = null;
+        File aliasPasswordFile = null;
+        File errorLog = null;
+        File outputLog = null;
+
+        try {
+            // write passwords to a file so it cannot be spied on.
+            if (signature.storePassword != null) {
+                keyStorePasswordFile = createPrivateTempFile("store", "prv");
+                FileUtils.writeToFile(keyStorePasswordFile, signature.storePassword);
+                args.add("-storepass:file");
+                args.add(keyStorePasswordFile.getAbsolutePath());
+            }
+
+            if (signature.keyPassword != null) {
+                aliasPasswordFile = createPrivateTempFile("alias", "prv");
+                FileUtils.writeToFile(aliasPasswordFile, signature.keyPassword);
+                args.add("--keypass:file");
+                args.add(aliasPasswordFile.getAbsolutePath());
+            }
+
+            args.add(toBeSigned.getAbsolutePath());
+
+            if (signature.keyAlias != null) {
+                args.add(signature.keyAlias);
+            }
+
+            errorLog = createPrivateTempFile("error", ".log");
+            outputLog = createPrivateTempFile("output", ".log");
+
+            logger.fine("Invoking " + Joiner.on(" ").join(args));
+            Process process = start(new ProcessBuilder(args).redirectError(errorLog).redirectOutput(outputLog));
+            int exitCode;
+            try {
+                exitCode = process.waitFor();
+            } catch (InterruptedException e) {
+                process.destroyForcibly();
+                throw e;
+            }
+            if (exitCode != 0) {
+                String errors = FileUtils.loadFileWithUnixLineSeparators(errorLog);
+                String output = FileUtils.loadFileWithUnixLineSeparators(outputLog);
+                throw new RuntimeException(
+                        String.format("%s failed with exit code %d: \n %s",
+                                jarSignerExecutable, exitCode,
+                                errors.trim().isEmpty() ? output : errors
+                        )
+                );
+            }
+        } finally {
+            if (keyStorePasswordFile != null && !keyStorePasswordFile.delete()) {
+                keyStorePasswordFile.deleteOnExit();
+            }
+            if (aliasPasswordFile != null && !aliasPasswordFile.delete()) {
+                aliasPasswordFile.deleteOnExit();
+            }
+            if (errorLog != null && !errorLog.delete()) {
+                errorLog.deleteOnExit();
+            }
+            if (outputLog != null && !outputLog.delete()) {
+                outputLog.deleteOnExit();
+            }
+        }
+    }
+
+    /**
+     * Creates a temp file readable and writable by the current user only, so that
+     * passwords and signer output cannot be read by other users of a shared machine.
+     * The permissions are applied at creation time on POSIX file systems.
+     */
+    private static File createPrivateTempFile(String prefix, String suffix) throws IOException {
+        try {
+            return Files.createTempFile(prefix, suffix,
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))).toFile();
+        } catch (UnsupportedOperationException e) {
+            // non-POSIX file system (e.g. Windows): restrict access through the File API
+            File file = File.createTempFile(prefix, suffix);
+            file.setReadable(false, false);
+            file.setWritable(false, false);
+            file.setReadable(true, true);
+            file.setWritable(true, true);
+            return file;
+        }
+    }
+
+    private Process start(ProcessBuilder builder) throws IOException {
+        return builder.start();
+    }
+
+    /**
+     * Return the "jarsigner" tool location or null if it cannot be determined.
+     */
+    private File locatedJarSigner() {
+        // Look in the java.home bin folder, on jdk installations or Mac OS X, this is where the
+        // javasigner will be located.
+        File javaHome = new File(System.getProperty("java.home"));
+        File jarSigner = getJarSigner(javaHome);
+        if (jarSigner.exists()) {
+            return jarSigner;
+        } else {
+            // if not in java.home bin, it's probable that the java.home points to a JRE
+            // installation, we should then look one folder up and in the bin folder.
+            jarSigner = getJarSigner(javaHome.getParentFile());
+            // if still cant' find it, give up.
+            return jarSigner.exists() ? jarSigner : null;
+        }
+    }
+
+    /**
+     * Returns the jarsigner tool location with the bin folder.
+     */
+    private File getJarSigner(File parentDir) {
+        return new File(new File(parentDir, "bin"), jarSignerExecutable);
+    }
+}

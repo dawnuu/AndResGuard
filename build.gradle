@@ -59,7 +59,7 @@ def resolveCentralProperty = { String propertyName, String environmentName ->
 }
 def centralDeploymentName = {
     resolveCentralProperty('centralDeploymentName', 'MAVEN_CENTRAL_DEPLOYMENT_NAME')
-            ?: "aabresguard-${centralVersion}"
+            ?: "andresguard-${centralVersion}"
 }
 def centralPublishingType = {
     def publishingType = (resolveCentralProperty('centralPublishingType', 'MAVEN_CENTRAL_PUBLISHING_TYPE')
@@ -70,8 +70,8 @@ def centralPublishingType = {
     return publishingType
 }
 def centralArtifactCoordinates = [
-        [groupPath: centralGroupPath, artifactId: 'aabresguard-core'],
-        [groupPath: centralGroupPath, artifactId: 'aabresguard-plugin'],
+        [groupPath: centralGroupPath, artifactId: CORE_ARTIFACT_ID.toString()],
+        [groupPath: centralGroupPath, artifactId: ARTIFACT_ID.toString()],
         [groupPath: centralPluginId.replace('.', '/'), artifactId: "${centralPluginId}.gradle.plugin"]
 ]
 def localMavenRepository = file("${System.getProperty('user.home')}/.m2/repository")
@@ -146,7 +146,7 @@ tasks.register('generateCentralChecksums') {
 
 tasks.register('centralPortalBundle', Zip) {
     dependsOn('generateCentralChecksums')
-    archiveFileName = "aabresguard-${centralVersion}-central-bundle.zip"
+    archiveFileName = "andresguard-${centralVersion}-central-bundle.zip"
     destinationDirectory = layout.buildDirectory.dir('central')
     centralArtifactCoordinates.each { coordinates ->
         from({ file("${localMavenRepository}/${coordinates.groupPath}/${coordinates.artifactId}/${centralVersion}") }) {
@@ -176,7 +176,7 @@ tasks.register('centralPortalUpload') {
         def encodedName = URLEncoder.encode(deploymentName, StandardCharsets.UTF_8.name())
         def uploadUrl = new URL("https://central.sonatype.com/api/v1/publisher/upload?name=${encodedName}&publishingType=${publishingType}")
         def connection = (HttpURLConnection) uploadUrl.openConnection()
-        def boundary = "----AabResGuard${System.currentTimeMillis()}"
+        def boundary = "----AndResGuard${System.currentTimeMillis()}"
         def authorization = Base64.encoder.encodeToString(
                 "${username}:${password}".getBytes(StandardCharsets.UTF_8)
         )

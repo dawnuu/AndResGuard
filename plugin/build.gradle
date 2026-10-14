@@ -12,9 +12,9 @@ group = GROUP_ID
 
 gradlePlugin {
     plugins {
-        aabResGuard {
+        andResGuard {
             id = PLUGIN_ID
-            implementationClass = 'com.bytedance.android.plugin.AabResGuardPlugin'
+            implementationClass = 'com.bytedance.android.plugin.AndResGuardPlugin'
         }
     }
 }

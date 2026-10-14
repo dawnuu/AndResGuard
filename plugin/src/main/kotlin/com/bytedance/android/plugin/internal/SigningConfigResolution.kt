@@ -1,12 +1,23 @@
 package com.bytedance.android.plugin.internal
 
 import com.android.build.api.variant.ApplicationVariant
+import com.android.build.api.dsl.ApplicationExtension
 import com.bytedance.android.plugin.model.SigningConfig
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
 import java.io.File
 
 internal fun getSigningConfig(project: Project, variant: ApplicationVariant): SigningConfig {
+    // Variant SigningConfig exposes signing scheme flags, not keystore credentials.
+    val android = project.extensions.findByType(ApplicationExtension::class.java)
+    if (android != null) {
+        val config = android.buildTypes.findByName(variant.buildType)?.signingConfig
+            ?: variant.productFlavors.firstNotNullOfOrNull { (_, name) -> android.productFlavors.findByName(name)?.signingConfig }
+            ?: android.defaultConfig.signingConfig
+        if (config != null) {
+            return SigningConfig(config.storeFile, config.storePassword, config.keyAlias, config.keyPassword)
+        }
+    }
     return try {
         // 1. 获取 variant.signingConfig 对象 (通常是一个 Provider)
         val scProvider = variant.signingConfig
@@ -39,7 +50,7 @@ internal fun getSigningConfig(project: Project, variant: ApplicationVariant): Si
 
         SigningConfig(storeFile, storePassword, keyAlias, keyPassword)
     } catch (e: Exception) {
-        project.logger.warn("AabResGuard: failed to read the signing config of variant ${variant.name}: $e")
+        project.logger.warn("AndResGuard: failed to read the signing config of variant ${variant.name}: $e")
         SigningConfig(null, null, null, null)
     }
 }

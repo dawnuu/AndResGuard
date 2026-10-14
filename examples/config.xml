@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<andresguard>
+    <issue id="whitelist" isactive="true">
+        <path value="*.R.string.keep_name" />
+        <path value="*.R.mipmap.ic_*" />
+        <path value="*.R.string.google_*" />
+    </issue>
+</andresguard>
