@@ -20,20 +20,36 @@ class AndResGuardPlugin : Plugin<Project> {
             val suffix = variant.name.replaceFirstChar { it.uppercase() }
             val bundle = variant.artifacts.get(SingleArtifact.BUNDLE)
             val apk = variant.artifacts.get(SingleArtifact.APK)
-            project.tasks.register("andresguard$suffix", AndResGuardTask::class.java) { task ->
-                task.variant = variant
-                task.bundleFile = bundle
-                task.apkDirectory = apk
-                task.builtArtifactsLoader = variant.artifacts.getBuiltArtifactsLoader()
-                task.sdkDirectory = components.sdkComponents.sdkDirectory
+            fun registerProcessor(label: String, format: ResourceFormat) =
+                project.tasks.register("andresguard$label$suffix", AndResGuardTask::class.java) { task ->
+                    task.variant = variant
+                    task.bundleFile = bundle
+                    task.apkDirectory = apk
+                    task.builtArtifactsLoader = variant.artifacts.getBuiltArtifactsLoader()
+                    task.sdkDirectory = components.sdkComponents.sdkDirectory
+                    task.resourceFormat = format.name.lowercase()
+                    task.description = "Build and process ${format.name} resources for ${variant.name}"
+                    task.dependsOn(if (format.aab) bundle else apk)
+                }
+            val aabProcessor = registerProcessor("Aab", ResourceFormat.AAB)
+            val apkProcessor = registerProcessor("Apk", ResourceFormat.APK)
+            project.tasks.register("andresguard$suffix") { task ->
+                task.group = "andresguard"
+                task.description = "Build and process AAB/APK resources according to andResGuard.format"
                 // Resolve after the DSL is configured; unselected formats never enter the task graph.
                 task.dependsOn(project.provider {
                     val format = ResourceFormat.parse(extension.format)
                     buildList<Any> {
-                        if (format.aab) add(bundle)
-                        if (format.apk) add(apk)
+                        if (format.aab) add(aabProcessor)
+                        if (format.apk) add(apkProcessor)
                     }
                 })
+            }
+            project.tasks.matching { it.name == "bundle$suffix" }.configureEach {
+                it.dependsOn(aabProcessor)
+            }
+            project.tasks.matching { it.name == "assemble$suffix" }.configureEach {
+                it.dependsOn(apkProcessor)
             }
         }
     }

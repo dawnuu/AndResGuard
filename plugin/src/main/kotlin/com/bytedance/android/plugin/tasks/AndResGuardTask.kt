@@ -26,6 +26,7 @@ open class AndResGuardTask : DefaultTask() {
     @get:Internal lateinit var apkDirectory: Provider<Directory>
     @get:Internal lateinit var sdkDirectory: Provider<Directory>
     @get:Internal lateinit var builtArtifactsLoader: BuiltArtifactsLoader
+    @get:Internal var resourceFormat: String? = null
 
     init {
         group = "andresguard"
@@ -36,7 +37,7 @@ open class AndResGuardTask : DefaultTask() {
     @TaskAction
     fun execute() {
         val config = project.extensions.getByType(AndResGuardExtension::class.java)
-        val format = ResourceFormat.parse(config.format)
+        val format = ResourceFormat.parse(resourceFormat ?: config.format)
         logger.lifecycle(config.toString())
         prepareUnusedFile(config)
         // Read signing once so all formats use the same identity.

@@ -21,7 +21,7 @@ Update integration names and the processing command when migrating from AabResGu
 | Output template | `obfuscatedBundleFileName` | `obfuscatedFileName` (shared by AAB/APK) |
 | Custom-variable property | `aabResGuard.var.NAME` | `andResGuard.var.NAME` |
 
-Existing whitelist, compression and filtering settings can be reused. The new format option defaults to AAB; select apk or all as needed. Use andresguardRelease for resource processing: ordinary bundleRelease and assembleRelease no longer run obfuscation automatically.
+Existing whitelist, compression and filtering settings can be reused. `bundleRelease` automatically processes AAB resources, and `assembleRelease` automatically processes APK resources. The explicit `andresguardRelease` task follows `format`, which defaults to AAB; select `apk` or `all` as needed.
 
 ## Integration guide
 
@@ -274,6 +274,9 @@ The unified task selects packaging and processing dependencies from format. Only
 
 ```bash
 ./gradlew :app:andresguardRelease
+# Standard Android tasks also run resource processing:
+./gradlew :app:bundleRelease    # AAB
+./gradlew :app:assembleRelease  # APK
 # With a flavor, for example:
 ./gradlew :app:andresguardFreeRelease
 ```
@@ -283,6 +286,8 @@ The unified task selects packaging and processing dependencies from format. Only
 | Unset / `aab` | AAB |
 | `apk` | APK |
 | `all` | Both AAB and APK |
+
+`format` controls only `andresguard<Variant>`. `bundle<Variant>` always processes AAB, and `assemble<Variant>` always processes APK, including flavor variants. Requesting multiple tasks in one invocation processes each format once. Processing failures fail the build; debug variants are unaffected.
 
 APK processing edits binary `resources.arsc` and ZIP entries directly, without converting to AAB. Obfuscation, merging, compression and string-filter settings are shared; `removeBundleMetadata`, `bundleMetaDataWhiteList` and `removeRootFiles` apply only to AAB. APK file-filter rules match actual paths inside the APK.
 

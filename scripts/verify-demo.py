@@ -39,6 +39,28 @@ def main():
         assert 'AndResGuard apk output:' in output if mode != 'default' else 'AndResGuard apk output:' not in output
         results[mode] = {'tasks': sorted(tasks), 'built': True}
 
+    # Standard build tasks select their own format regardless of the extension.
+    for entry, kind, other in (('bundleRelease', 'Aab', 'Apk'), ('assembleRelease', 'Apk', 'Aab')):
+        for mode in ('aab', 'apk', 'all'):
+            command = [wrapper, entry, '-PguardFormat=' + mode, '--console=plain']
+            graph = run(command + ['--dry-run'], demo)
+            tasks = set(re.findall(r'^(:app:\S+) SKIPPED$', graph, re.MULTILINE))
+            assert ':app:andresguard' + kind + 'Release' in tasks, tasks
+            assert ':app:andresguard' + other + 'Release' not in tasks, tasks
+        output = run(command, demo)
+        assert output.count('AndResGuard ' + kind.lower() + ' output:') == 1, output
+        assert 'AndResGuard ' + other.lower() + ' output:' not in output, output
+        results[entry] = {'formatIndependent': True, 'built': True}
+
+    combined = run([wrapper, 'bundleRelease', 'assembleRelease', 'andresguardRelease',
+                    '-PguardFormat=all', '--console=plain'], demo)
+    for kind in ('aab', 'apk'):
+        assert combined.count('AndResGuard ' + kind + ' output:') == 1, combined
+    results['combinedEntries'] = {'processedOncePerFormat': True}
+    debug = run([wrapper, 'assembleDebug', 'bundleDebug', '--dry-run', '--console=plain'], demo)
+    assert not re.search(r'^:app:andresguard\S+ SKIPPED$', debug, re.MULTILINE), debug
+    results['debug'] = {'noProcessing': True}
+
     # One project property must name both formats, including legacy .aab templates.
     shared = run([wrapper, 'andresguardRelease', '-PguardFormat=all',
                   '-PandResGuard.fileName=shared_{channel}.aab', '-PandResGuard.var.channel=store',
@@ -95,7 +117,7 @@ def main():
     report = root / 'build/reports/demo-verification.json'
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps(results, indent=2) + '\n')
-    print('Verified default/AAB, APK and ALL modes, resource IDs, whitelist, DEX, signing, alignment and mapping.')
+    print('Verified lifecycle tasks, format selection, duplicate execution, debug isolation, resource IDs, whitelist, DEX, signing, alignment and mapping.')
     print('Report: ' + str(report))
 
 

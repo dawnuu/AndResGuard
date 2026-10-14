@@ -21,7 +21,7 @@
 | 文件名模板 | `obfuscatedBundleFileName` | `obfuscatedFileName`（APK/AAB 共用） |
 | 自定义变量项目属性 | `aabResGuard.var.NAME` | `andResGuard.var.NAME` |
 
-已有白名单、压缩、过滤等配置可以继续复用。新增 `format`，不配置时仍处理 AAB；需要 APK 或两种格式时设置 `apk` 或 `all`。资源处理统一执行 `andresguardRelease`，普通 `bundleRelease`、`assembleRelease` 不再自动运行混淆。
+已有白名单、压缩、过滤等配置可以继续复用。`bundleRelease` 自动处理 AAB，`assembleRelease` 自动处理 APK。独立任务 `andresguardRelease` 按 `format` 选择处理范围，不配置时处理 AAB；需要 APK 或两种格式时设置 `apk` 或 `all`。
 
 ## 接入教程
 
@@ -270,6 +270,9 @@ andResGuard {
 
 ```bash
 ./gradlew :app:andresguardRelease
+# 标准 Android 任务也会自动处理资源：
+./gradlew :app:bundleRelease    # AAB
+./gradlew :app:assembleRelease  # APK
 # 有 flavor 时，例如：
 ./gradlew :app:andresguardFreeRelease
 ```
@@ -279,6 +282,8 @@ andResGuard {
 | 不配置 / `aab` | AAB |
 | `apk` | APK |
 | `all` | 同时处理 AAB 和 APK |
+
+`format` 仅控制 `andresguard<Variant>`。`bundle<Variant>` 始终处理 AAB，`assemble<Variant>` 始终处理 APK，同样支持 flavor 变体。同一次构建执行多个入口时，每种格式只处理一次；资源处理失败会使构建失败，debug 变体不受影响。
 
 APK 直接处理二进制 `resources.arsc` 和包内文件，不转换为 AAB。混淆、合并、压缩及文案过滤等配置共用；`removeBundleMetadata`、`bundleMetaDataWhiteList`、`removeRootFiles` 仅对 AAB 生效。APK 的文件过滤规则匹配其实际包内路径。
 
