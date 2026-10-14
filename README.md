@@ -1,96 +1,76 @@
-# AabResGuard
+# AndResGuard
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.dawnuu/aabresguard-plugin.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.dawnuu/aabresguard-plugin)
+Resource obfuscation, duplicate-resource merging, lossless image compression, file/string filtering and signing for AAB and APK.
 
 ## Migration guide
 
-> **Maven Central migration:** When migrating from the custom Maven repository to Maven Central, update the repository, plugin ID, and legacy dependency as shown below. Java/Kotlin package names in your source code do not need to change.
->
-> | Item | Custom Maven setup | Maven Central setup |
-> | --- | --- | --- |
-> | Repository | Custom Maven repository | mavenCentral() |
-> | Plugins DSL ID | com.bytedance.android.aabResGuard | io.github.dawnuu.aabresguard |
-> | Legacy dependency | com.bytedance.android:aabresguard-plugin:0.1.x | io.github.dawnuu:aabresguard-plugin:1.0.1 |
-> | Legacy apply ID | com.bytedance.android.aabResGuard | io.github.dawnuu.aabresguard |
+Update integration names and the processing command when migrating from AabResGuard:
+
+| Item | AabResGuard | AndResGuard |
+| --- | --- | --- |
+| Plugin ID | `io.github.dawnuu.aabresguard` | `io.github.dawnuu.andresguard` |
+| Buildscript dependency | `io.github.dawnuu:aabresguard-plugin` | `io.github.dawnuu:andresguard-plugin:1.1.0` |
+| Configuration block | `aabResGuard { ... }` | `andResGuard { ... }` |
+| Processing task | `aabresguardRelease` | `andresguardRelease` |
+| Kotlin extension type | `AabResGuardExtension` | `AndResGuardExtension` |
+| File-name project property | `aabResGuard.fileName` | `andResGuard.fileName` |
+| Output template | `obfuscatedBundleFileName` | `obfuscatedFileName` (shared by AAB/APK) |
+| Custom-variable property | `aabResGuard.var.NAME` | `andResGuard.var.NAME` |
+
+Existing whitelist, compression and filtering settings can be reused. The new format option defaults to AAB; select apk or all as needed. Use andresguardRelease for resource processing: ordinary bundleRelease and assembleRelease no longer run obfuscation automatically.
 
 ## Integration guide
 
-AabResGuard provides two integration methods:
-
-- **Gradle Plugin:** the recommended method; it integrates with the packaging workflow, so the original bundle command performs obfuscation.
-- **Command-line tool:** suitable for CI/CD or standalone workflows through a JAR command.
-
----
+Both Gradle Plugin and standalone JAR integration are supported.
 
 ### 1. Gradle Plugin
 
 #### 1.1 Add the plugin
 
-We recommend using the [Gradle plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block).
+Use Gradle plugins DSL with a version catalog.
 
-Declare the version in `gradle/libs.versions.toml`:
+Configure repositories in settings.gradle or settings.gradle.kts; the following syntax works with both Groovy and Kotlin DSL:
+
+```groovy
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+```
+
+Declare the version and plugin in gradle/libs.versions.toml:
 
 ```toml
 [versions]
-aabresguard = "1.0.1"
+andresguard = "1.1.0"
 
 [plugins]
-aabresguard = { id = "io.github.dawnuu.aabresguard", version.ref = "aabresguard" }
+andresguard = { id = "io.github.dawnuu.andresguard", version.ref = "andresguard" }
 ```
 
-`libs.versions.toml` is shared by Groovy DSL and Kotlin DSL projects.
+Declare the plugin in the root project and apply it in the app module. This syntax works with both Groovy and Kotlin DSL:
 
-**Groovy DSL:**
-
-Declare the plugin version and configure repositories in `build.gradle` for the root project:
-
-```gradle
+```groovy
+// Root build.gradle / build.gradle.kts
 plugins {
-  alias(libs.plugins.aabresguard) apply false
+    alias(libs.plugins.andresguard) apply false
 }
 
-dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-  repositories {
-    google()
-    mavenCentral()
-  }
-}
-```
-
-Enable the plugin in `build.gradle` for the application module:
-
-```gradle
+// App module build.gradle / build.gradle.kts
 plugins {
-  alias(libs.plugins.aabresguard)
-}
-```
-
-**Kotlin DSL (`.kts`):**
-
-Declare the plugin version and configure repositories in `build.gradle.kts` for the root project:
-
-```kotlin
-plugins {
-  alias(libs.plugins.aabresguard) apply false
-}
-
-dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-  repositories {
-    google()
-    mavenCentral()
-  }
-}
-```
-
-Enable the plugin in `build.gradle.kts` for the application module:
-
-```kotlin
-plugins {
-  alias(libs.plugins.aabresguard)
+    id("com.android.application")
+    alias(libs.plugins.andresguard)
 }
 ```
 
@@ -107,7 +87,7 @@ plugins {
 >     google()
 >   }
 >   dependencies {
->     classpath "io.github.dawnuu:aabresguard-plugin:1.0.1"
+>     classpath "io.github.dawnuu:andresguard-plugin:1.1.0"
 >   }
 > }
 > ```
@@ -115,7 +95,7 @@ plugins {
 > Apply the plugin in the application module:
 >
 > ```gradle
-> apply plugin: "io.github.dawnuu.aabresguard"
+> apply plugin: "io.github.dawnuu.andresguard"
 > ```
 >
 > **Kotlin DSL (`.kts`):**
@@ -129,7 +109,7 @@ plugins {
 >     google()
 >   }
 >   dependencies {
->     classpath("io.github.dawnuu:aabresguard-plugin:1.0.1")
+>     classpath("io.github.dawnuu:andresguard-plugin:1.1.0")
 >   }
 > }
 > ```
@@ -137,22 +117,24 @@ plugins {
 > Apply the plugin in the application module:
 >
 > ```kotlin
-> apply(plugin = "io.github.dawnuu.aabresguard")
+> apply(plugin = "io.github.dawnuu.andresguard")
 > ```
 
 #### 1.2 Configuration options
 
-Add an `aabResGuard` configuration block in `build.gradle` for the application module.
+Add an `andResGuard` configuration block in `build.gradle` for the application module.
 
 **Groovy DSL:**
 
 ```gradle
-aabResGuard {
+andResGuard {
+    // Output format: aab, apk or all; default: aab
+    format = "aab"
     // Enable resource obfuscation; default: true
     enableObfuscate = true
     // Generate random resource names; default: false
     useRandomName = false
-    // Append one random byte to media files to change their MD5; default: false
+    // Append one byte to media files to change their MD5; default: false
     enableMutateMd5 = false
     // Mutation is stable by default (same input -> same bytes); change the seed to get a different result
     mutateMd5Seed = ""
@@ -165,20 +147,21 @@ aabResGuard {
     // Optional override; empty uses tools bundled in the JAR
     imageCompressionToolsDir = ""
     // Enable file filtering; default: false
-    enableFilterFiles = true
+    enableFilterFiles = false
     // Enable string filtering; default: false
     enableFilterStrings = false
-    // Remove BUNDLE-METADATA; default: true
+    // Remove AAB BUNDLE-METADATA; default: true
     removeBundleMetadata = true
-    // Remove files in the root directory; default: false
-    removeRootFiles = true
+    // AAB only: remove files in base/root; default: false
+    // Test application stability yourself before enabling this option
+    removeRootFiles = false
     // Keep matching BUNDLE-METADATA files when removeBundleMetadata is true
     bundleMetaDataWhiteList = [
         "com.example.metadata"
     ]
 
     // Mapping file for incremental obfuscation (optional)
-    mappingFile = file("mapping.txt").toPath()
+    // mappingFile = file("mapping.txt").toPath()
 
     // Custom allowlist rules are merged with the built-in allowlist
     whiteList = [
@@ -186,19 +169,19 @@ aabResGuard {
         "*.R.drawable.icon"
     ]
 
-    // Obfuscated output name; it must end with .aab
-    // Placeholders: {applicationId} {versionName} {versionCode} {variantName} {buildTime}
+    // Shared AAB/APK output template; the extension follows the output format
+    // Placeholders: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
     // e.g. "{applicationId}_{versionName}_{buildTime}.aab"
-    // Override from outside: -PaabResGuard.fileName="{applicationId}_{channel}.aab"
-    // and -PaabResGuard.var.channel=google (command line or gradle.properties; wins over this file)
+    // Override from outside: -PandResGuard.fileName="{applicationId}_{channel}"
+    // and -PandResGuard.var.channel=google (command line or gradle.properties; wins over this file)
     // Custom variables, e.g. fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
-    // Default: {applicationId}_{versionName}_{versionCode}.aab
-    obfuscatedBundleFileName = "duplicated-app.aab"
+    // Default: {applicationId}_{versionName}_{versionCode}.aab / .apk
+    obfuscatedFileName = "duplicated-app"
 
     // File filtering rules
     filterList = [
         "*/arm64-v8a/*",
-        "META-INF/*"
+        "BUNDLE-METADATA/*"
     ]
 
     // String filtering list; path is relative to the current working directory (optional)
@@ -216,12 +199,14 @@ aabResGuard {
 **Kotlin DSL (`.kts`):**
 
 ```kotlin
-configure<AabResGuardExtension> {
+andResGuard {
+    // Output format: aab, apk or all; default: aab
+    format = "aab"
     // Enable resource obfuscation; default: true
     enableObfuscate = true
     // Generate random resource names; default: false
     useRandomName = false
-    // Append one random byte to media files to change their MD5; default: false
+    // Append one byte to media files to change their MD5; default: false
     enableMutateMd5 = false
     // Mutation is stable by default (same input -> same bytes); change the seed to get a different result
     mutateMd5Seed = ""
@@ -230,20 +215,21 @@ configure<AabResGuardExtension> {
     enableCompressImages = false
     imageCompressionToolsDir = ""
     // Enable file filtering; default: false
-    enableFilterFiles = true
+    enableFilterFiles = false
     // Enable string filtering; default: false
     enableFilterStrings = false
-    // Remove BUNDLE-METADATA; default: true
+    // Remove AAB BUNDLE-METADATA; default: true
     removeBundleMetadata = true
-    // Remove files in the root directory; default: false
-    removeRootFiles = true
+    // AAB only: remove files in base/root; default: false
+    // Test application stability yourself before enabling this option
+    removeRootFiles = false
     // Keep matching BUNDLE-METADATA files when removeBundleMetadata is true
     bundleMetaDataWhiteList = setOf(
         "com.example.metadata"
     )
 
     // Mapping file for incremental obfuscation (optional)
-    mappingFile = file("mapping.txt").toPath()
+    // mappingFile = file("mapping.txt").toPath()
 
     // Custom allowlist rules are merged with the built-in allowlist
     whiteList = setOf(
@@ -251,19 +237,19 @@ configure<AabResGuardExtension> {
         "*.R.drawable.icon"
     )
 
-    // Obfuscated output name; it must end with .aab
-    // Placeholders: {applicationId} {versionName} {versionCode} {variantName} {buildTime}
+    // Shared AAB/APK output template; the extension follows the output format
+    // Placeholders: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
     // e.g. "{applicationId}_{versionName}_{buildTime}.aab"
-    // Override from outside: -PaabResGuard.fileName="{applicationId}_{channel}.aab"
-    // and -PaabResGuard.var.channel=google (command line or gradle.properties; wins over this file)
+    // Override from outside: -PandResGuard.fileName="{applicationId}_{channel}"
+    // and -PandResGuard.var.channel=google (command line or gradle.properties; wins over this file)
     // Custom variables, e.g. fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
-    // Default: {applicationId}_{versionName}_{versionCode}.aab
-    obfuscatedBundleFileName = "duplicated-app.aab"
+    // Default: {applicationId}_{versionName}_{versionCode}.aab / .apk
+    obfuscatedFileName = "duplicated-app"
 
     // File filtering rules
     filterList = setOf(
         "*/arm64-v8a/*",
-        "META-INF/*"
+        "BUNDLE-METADATA/*"
     )
 
     // String filtering list; path is relative to the current working directory (optional)
@@ -278,59 +264,82 @@ configure<AabResGuardExtension> {
 }
 ```
 
+Templates may omit the extension or retain an .aab/.apk extension; the plugin applies the output format automatically. With format = "all", one template produces matching AAB/APK names in separate directories.
+
 #### 1.3 Run obfuscation
 
-The `aabResGuard plugin` is integrated into the `bundle` packaging workflow. Run the original bundle command to perform obfuscation; only Release variants are processed by default:
+The unified task selects packaging and processing dependencies from format. Only Release variants are registered:
 
-```cmd
-./gradlew clean :app:bundleRelease --stacktrace
+```bash
+./gradlew :app:andresguardRelease
+# With a flavor, for example:
+./gradlew :app:andresguardFreeRelease
 ```
 
-The task prints a before-and-after bundle-size comparison when obfuscation finishes.
+| format | Processed output |
+| --- | --- |
+| Unset / `aab` | AAB |
+| `apk` | APK |
+| `all` | Both AAB and APK |
 
-#### 1.4 Get the obfuscated bundle path
+APK processing edits binary `resources.arsc` and ZIP entries directly, without converting to AAB. Obfuscation, merging, compression and string-filter settings are shared; `removeBundleMetadata`, `bundleMetaDataWhiteList` and `removeRootFiles` apply only to AAB. APK file-filter rules match actual paths inside the APK.
 
-Use the Gradle Task API to obtain the obfuscated bundle path.
+Release variants require a valid signingConfig. Missing signing configuration fails by default; allowDebugSignFallback = true is for testing only.
 
-**Groovy DSL:**
+#### 1.4 Output locations
 
-```groovy
-def aabResGuardPlugin = project.tasks.getByName("aabresguardRelease")
-Path bundlePath = aabResGuardPlugin.getObfuscatedBundlePath()
+Processed files live in the app module's build/outputs/andresguard/. Each format has its own artifact and mapping directory. Android's original outputs are retained. For module app and variant release:
+
+```text
+app/build/outputs/
+├── andresguard/
+│   ├── aab/release/
+│   │   ├── <file-name>.aab
+│   │   ├── resources-mapping.txt
+│   │   └── base-duplicated.txt
+│   └── apk/release/
+│       ├── <file-name>.apk
+│       ├── resources-mapping.txt
+│       └── base-duplicated.txt
+├── bundle/release/       # Original Android AAB
+└── apk/release/          # Original Android APK
 ```
 
-**Kotlin DSL (`.kts`):**
+resources-mapping.txt is generated when resource obfuscation is enabled; base-duplicated.txt is generated when duplicate-resource merging is enabled. Reports are isolated by format.
 
-```kotlin
-val aabResGuardPlugin = project.tasks.getByName("aabresguardRelease")
-val bundlePath: Path = aabResGuardPlugin.obfuscatedBundlePath()
-```
-
----
+- Default names: `{applicationId}_{versionName}_{versionCode}.aab` / `.apk`.
+- Custom template: obfuscatedFileName; use andResGuard.fileName for a project-property override.
+- Flavors use the full variant name, for example aab/freeRelease/ and apk/freeRelease/. AGP determines the original-output paths.
+- Selecting only aab or apk produces that format; existing outputs are not automatically removed.
+- CLI output location is controlled by --output.
 
 ### Lossless image compression
 
 Optionally set `imageCompressionCacheDir = rootProject.file("custom-cache/images").toPath()` to choose another cache directory. Leave it unset for the default. Choose a location outside `build/` to preserve results across `clean`.
 
-The Gradle plugin caches successful results in `.gradle/aabresguard/image-cache/` under the project root; `gradlew clean` preserves this directory. Each build reads the original image and inserts cached bytes into the new AAB when image content, compression arguments, tool contents and platform match. Source files are unchanged. Results that do not shrink are also cached; failures are not. The `cached` summary field counts hits. Corrupt entries are recompressed, and cache I/O failures warn and allow compression to continue. Delete this directory to force recompression. The CLI does not enable persistent caching by default.
+The Gradle plugin caches successful results in `.gradle/andresguard/image-cache/` under the project root; `gradlew clean` preserves this directory. Each build reads the original image and inserts cached bytes into the new AAB/APK when image content, compression arguments, tool contents and platform match. Source files are unchanged. Results that do not shrink are also cached; failures are not. The `cached` summary field counts hits. Corrupt entries are recompressed, and cache I/O failures warn and allow compression to continue. Delete this directory to force recompression. The CLI does not enable persistent caching by default.
 
 Set `enableCompressImages = true` to optimize PNG, JPG/JPEG, GIF (including animations), and static WebP in every module's `res/` and `assets/` directories. Images retain their formats, paths, resolution and visual quality, with metadata supported by the tools preserved. Only smaller results replace the originals. Already optimized images may not shrink; decoded memory usage usually stays the same.
 
 Native tools are bundled in the JAR; no installation, runtime download or directory configuration is needed. Supported platforms: macOS ARM64 (Apple Silicon)/x86_64 (Intel), Windows x86_64 and Linux x86_64 (glibc, not Alpine/musl). Tools are extracted into a private per-run temporary directory and verified with SHA-256, then cleaned up after processing. No tools are extracted when compression is disabled.
 
-Leave `imageCompressionToolsDir` empty to use bundled tools. Set it only to override versions or use another platform, e.g. `imageCompressionToolsDir = "/opt/homebrew/bin"`. Blocked, missing, failed or timed-out tools emit `[AabResGuard WARNING]`, retain original images and allow obfuscation and packaging to continue. Once a format fails, further images of that format are left unchanged for that run to avoid repeated launches and warnings. Temporary directory creation/cleanup failures also warn; explicit task interruption still propagates.
+Leave `imageCompressionToolsDir` empty to use bundled tools. Set it only to override versions or use another platform, e.g. `imageCompressionToolsDir = "/opt/homebrew/bin"`. Blocked, missing, failed or timed-out tools emit `[AndResGuard WARNING]`, retain original images and allow obfuscation and packaging to continue. Once a format fails, further images of that format are left unchanged for that run to avoid repeated launches and warnings. Temporary directory creation/cleanup failures also warn; explicit task interruption still propagates.
 
-On macOS, extraction sets execution permission for the current user. The bundled tools run on the tested Apple Silicon Mac, but are not Developer ID-signed and Apple-notarized; other Gatekeeper or managed security policies may block them. Launch failures or killed processes include a macOS diagnostic hint. For public distribution, follow [Apple's signing and notarization workflow](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution); restricted build machines can use `imageCompressionToolsDir` to select tools already approved for execution.
-
-Nine-patch images (including compiled Android `np*` chunks), APNG, and animated WebP are skipped and logged. Other formats, such as BMP and SVG, are unchanged. The summary reports optimized, unchanged, skipped and failed image counts and saved image bytes; actual AAB savings also depend on ZIP compression. Optimization runs before resource obfuscation and MD5 mutation.
+Nine-patch images (including compiled Android `np*` chunks), APNG, and animated WebP are skipped and logged. Other formats, such as BMP and SVG, are unchanged. The summary reports optimized, unchanged, skipped and failed image counts and saved image bytes; actual AAB/APK savings also depend on ZIP compression. Optimization runs before resource obfuscation and MD5 mutation.
 
 CLI: add `--compress-images=true`; `--image-compression-tools-dir` is an optional override. Enable this feature through Gradle or CLI flags; XML configuration is not supported yet. See [bundled tool notices](core/src/main/resources/image-tools/NOTICE.md) for versions, origins, licenses and regeneration instructions.
 
+Bundled macOS tools are not Developer ID-notarized; use imageCompressionToolsDir to select approved tools if execution is blocked.
+
 ### 2. Command-line tool
 
-#### 2.1 Download
+#### 2.1 Build the JAR
 
-Download the latest `AabResGuard-x.x.x.jar` from [Releases](https://github.com/dawnuu/AabResGuard/releases).
+```bash
+./gradlew :core:shadowJar
+```
+
+The JAR is core/build/libs/AndResGuard-1.1.0.jar. Commands below assume it has been copied to the current directory as AndResGuard.jar.
 
 #### 2.2 Prepare the configuration file
 
@@ -348,7 +357,7 @@ The command-line tool uses an XML configuration file to define allowlist and fil
     <!-- File filtering rules (optional) -->
     <filter isactive="true">
         <rule value="*/arm64-v8a/*"/>
-        <rule value="META-INF/*"/>
+        <rule value="BUNDLE-METADATA/*"/>
     </filter>
 
     <!-- String filtering configuration (optional) -->
@@ -365,22 +374,23 @@ The XML parser recognizes only the `issue`, `filter`, and `filter-str` elements 
 #### 2.3 Run obfuscation
 
 ```cmd
-java -jar AabResGuard.jar obfuscate-bundle \
-  --bundle=app.aab \
+java -jar AndResGuard.jar obfuscate \
+  --input=app.aab \
   --output=obfuscated-app.aab \
   --config=config.xml \
-  --mapping=mapping.txt \
   --merge-duplicated-res=true \
   --remove-bundle-metadata=true \
-  --remove-root-files=true
+  --remove-root-files=false
 ```
+
+For APK, use the same command with .apk input/output. Set --build-tools-dir=/path/to/sdk/build-tools/35.0.0 or configure ANDROID_HOME / ANDROID_SDK_ROOT.
 
 **Required arguments:**
 
 | Argument | Description |
 |------|------|
-| `--bundle` | Input AAB file path |
-| `--output` | Obfuscated output AAB file path |
+| `--input` | Input AAB or standalone APK path |
+| `--output` | Processed output path with the same format as the input |
 | `--config` | Configuration file path |
 
 **Optional arguments:**
@@ -388,28 +398,16 @@ java -jar AabResGuard.jar obfuscate-bundle \
 | Argument | Description |
 |------|------|
 | `--mapping` | Mapping file path for incremental obfuscation |
+| `--build-tools-dir` | Android SDK Build Tools 35+ directory for APK |
+| `--compress-images=true` | Enable lossless image compression |
+| `--image-compression-tools-dir` | Optional override for bundled image tools |
 | `--merge-duplicated-res=true` | Remove duplicate resources |
 | `--remove-bundle-metadata=true` | Remove BUNDLE-METADATA |
-| `--remove-root-files=true` | Remove files in the root directory |
+| `--remove-root-files=true` | AAB only: remove files in base/root |
 | `--disable-sign=true` | Disable signing |
 | `--storeFile` | Signing keystore file path |
 | `--storePassword` | Keystore password |
 | `--keyAlias` | Key alias |
 | `--keyPassword` | Key password |
 
-#### 2.4 CI/CD integration example
-
-```yaml
-# GitHub Actions example
-- name: Obfuscate AAB
-  run: |
-    java -jar AabResGuard.jar obfuscate-bundle \
-      --bundle=app/build/outputs/bundle/release/app-release.aab \
-      --output=app-obfuscated.aab \
-      --config=config.xml \
-      --merge-duplicated-res=true
-```
-
-## Recommended project
-
-- **[StringBlur](https://github.com/dawnuu/StringBlur)** — an Android string encryption tool that helps prevent strings from being easily extracted through reverse engineering.
+CLI defaults to debug signing; supply signing flags for release artifacts. --remove-root-files=true applies only to AAB, removes all base/root content and is disabled by default.
