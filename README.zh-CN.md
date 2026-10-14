@@ -1,5 +1,7 @@
 # AndResGuard
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.dawnuu/andresguard-plugin)](https://central.sonatype.com/artifact/io.github.dawnuu/andresguard-plugin)
+
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 支持 AAB/APK 资源混淆、重复资源合并、图片无损压缩、文件/文案过滤和签名。

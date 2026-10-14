@@ -1,5 +1,7 @@
 # AndResGuard
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.dawnuu/andresguard-plugin)](https://central.sonatype.com/artifact/io.github.dawnuu/andresguard-plugin)
+
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 Resource obfuscation, duplicate-resource merging, lossless image compression, file/string filtering and signing for AAB and APK.
