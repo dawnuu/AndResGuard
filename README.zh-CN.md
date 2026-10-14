@@ -2,122 +2,401 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Android AAB/APK 资源处理工具，支持资源名称与路径混淆、白名单、mapping、重复资源合并、图片无损压缩和媒体 MD5 修改。
+支持 AAB/APK 资源混淆、重复资源合并、图片无损压缩、文件/文案过滤和签名。
 
-## 统一 Gradle 入口
+## 迁移教程
 
-```groovy
-plugins {
-    id 'com.android.application'
-    id 'io.github.dawnuu.andresguard' version '1.1.0'
-}
+从 AabResGuard 切换到当前插件，主要修改接入名称和执行命令：
 
-andResGuard {
-    format = "aab" // 默认 aab，可选 apk、all
-    enableObfuscate = true
-    mergeDuplicatedRes = true
-    enableCompressImages = true
-    whiteList = ['*.R.string.keep_name'] as Set
-}
-```
+| 项目 | AabResGuard | AndResGuard |
+| --- | --- | --- |
+| 插件 ID | `io.github.dawnuu.aabresguard` | `io.github.dawnuu.andresguard` |
+| buildscript 依赖 | `io.github.dawnuu:aabresguard-plugin` | `io.github.dawnuu:andresguard-plugin:1.1.0` |
+| 配置块 | `aabResGuard { ... }` | `andResGuard { ... }` |
+| 处理任务 | `aabresguardRelease` | `andresguardRelease` |
+| Kotlin 扩展类型 | `AabResGuardExtension` | `AndResGuardExtension` |
+| 文件名项目属性 | `aabResGuard.fileName` | `andResGuard.aabFileName` / `andResGuard.apkFileName` |
+| 自定义变量项目属性 | `aabResGuard.var.NAME` | `andResGuard.var.NAME` |
 
-```bash
-./gradlew :app:andresguardRelease
-# 有 flavor 时，例如 :app:andresguardFreeRelease
-```
+已有白名单、压缩、过滤等配置可以继续复用。新增 `format`，不配置时仍处理 AAB；需要 APK 或两种格式时设置 `apk` 或 `all`。资源处理统一执行 `andresguardRelease`，普通 `bundleRelease`、`assembleRelease` 不再自动运行混淆。
 
-| format | 处理范围 |
-| --- | --- |
-| 不配置 / aab | 生成、处理并签名 AAB |
-| apk | 生成、处理、对齐并签名 APK |
-| all | 同时处理 AAB 和 APK，使用相同配置和签名身份 |
+## 接入教程
 
-单一任务按 format 选择打包依赖。Android 原有的 `bundleRelease` 和 `assembleRelease` 保留为普通打包任务；执行资源处理请使用 `andresguardRelease`。无效 format 会在执行打包前报错。
+保留 Gradle Plugin 和命令行两种接入方式。
 
-产物与 mapping 分开存放：
+### 一、Gradle Plugin
 
-- `app/build/outputs/andresguard/aab/<variant>/`
-- `app/build/outputs/andresguard/apk/<variant>/`
+#### 1. 接入插件
 
-本版从 AabResGuard 迁移，插件 ID、配置块、任务名、Java 公共包和产物名称均已更名。旧版使用方需更新接入配置；AAB 专属的 Bundle 类名保留，APK 专属类使用 Apk 命名。
-
-## 本地构建与 Demo
-
-此版本尚未发布到 Maven Central，请先构建本地 Maven 仓库：
+当前版本为 `1.1.0`，尚未发布到 Maven Central。先在 AndResGuard 工程生成本地 Maven 仓库：
 
 ```bash
 ./gradlew :core:publishAllPublicationsToLocalBuildRepository :plugin:publishAllPublicationsToLocalBuildRepository
 ```
 
-在使用方的 `pluginManagement.repositories` 和依赖仓库中加入 `AndResGuard/build/maven`，再加入 `google()` 和 `mavenCentral()`。插件实现坐标为 `io.github.dawnuu:andresguard-plugin:1.1.0`，核心为 `io.github.dawnuu:andresguard-core:1.1.0`。
+使用方在 `settings.gradle` 配置插件仓库，并在依赖仓库加入相同的本地 Maven 路径；以下路径按 AndResGuard 与应用工程位于同一父目录举例。
 
-本地 Demo 为同级目录 `../AndResGuardDemo`：
+**Groovy DSL：**
 
-```bash
-cd ../AndResGuardDemo
-./gradlew andresguardRelease
-./gradlew andresguardRelease -PguardFormat=apk
-./gradlew andresguardRelease -PguardFormat=all
+```groovy
+pluginManagement {
+    repositories {
+        maven { url = uri("../AndResGuard/build/maven") }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("../AndResGuard/build/maven") }
+        google()
+        mavenCentral()
+    }
+}
 ```
 
-Demo 的 `guardFormat` 是示例工程映射到 `format` 的项目属性，不是插件额外的格式入口。Demo 使用 debug 证书，仅用于测试。
+**Kotlin DSL（settings.gradle.kts）：**
 
-## 配置
+```kotlin
+pluginManagement {
+    repositories {
+        maven { url = uri("../AndResGuard/build/maven") }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("../AndResGuard/build/maven") }
+        google()
+        mavenCentral()
+    }
+}
+```
 
-| 配置 | 默认值 / 用途 |
+保留原来的版本目录接入方式，在 `gradle/libs.versions.toml` 中声明：
+
+```toml
+[versions]
+andresguard = "1.1.0"
+
+[plugins]
+andresguard = { id = "io.github.dawnuu.andresguard", version.ref = "andresguard" }
+```
+
+在根工程声明，在应用模块启用：
+
+```groovy
+// 根工程 build.gradle / build.gradle.kts
+plugins {
+    alias(libs.plugins.andresguard) apply false
+}
+
+// 应用模块 build.gradle / build.gradle.kts
+plugins {
+    id("com.android.application")
+    alias(libs.plugins.andresguard)
+}
+```
+
+已有 `buildscript` 接入方式也可保留：将 classpath 改为 `io.github.dawnuu:andresguard-plugin:1.1.0`，apply ID 改为 `io.github.dawnuu.andresguard`，并在 buildscript 仓库加入本地 Maven 路径。
+
+需要 JDK 17+；处理 APK 时还需要 Android SDK Build Tools 35+。
+
+#### 2. 配置参数
+
+在 `build.gradle(application)` 中添加 `andResGuard` 配置块：
+
+**Groovy DSL：**
+
+```gradle
+andResGuard {
+    // 输出格式：aab、apk、all，默认 aab
+    format = "aab"
+    // 是否开启资源混淆，默认 true
+    enableObfuscate = true
+    // 是否生成随机资源名称，默认 false
+    useRandomName = false
+    // 是否给媒体文件追加字节以修改 MD5，默认 false
+    enableMutateMd5 = false
+    // 默认稳定修改（相同输入得到相同结果）；改变种子可得到另一份稳定结果
+    mutateMd5Seed = ""
+    // 找不到签名配置时是否回退到 debug 签名，默认 false（直接构建失败）
+    allowDebugSignFallback = false
+    // 是否允许去除重复资源，默认 false
+    mergeDuplicatedRes = true
+    // 无损压缩 PNG/JPEG/GIF/静态 WebP，默认 false
+    enableCompressImages = false
+    // 可选：覆盖内置压缩工具；留空使用随 JAR 打包的工具
+    imageCompressionToolsDir = ""
+    // 是否允许过滤文件，默认 false
+    enableFilterFiles = false
+    // 是否允许过滤文案，默认 false
+    enableFilterStrings = false
+    // 是否移除 AAB 的 BUNDLE-METADATA，默认 true
+    removeBundleMetadata = true
+    // 是否移除 root 目录，默认 false
+    removeRootFiles = false
+    // removeBundleMetadata 开启时，保留匹配的 BUNDLE-METADATA 文件
+    bundleMetaDataWhiteList = [
+        "com.example.metadata"
+    ]
+
+    // 用于增量混淆的 mapping 文件（可选）
+    // mappingFile = file("mapping.txt").toPath()
+
+    // 白名单规则，自定义的白名单会与内置白名单合并
+    whiteList = [
+        "*.R.raw.*",
+        "*.R.drawable.icon"
+    ]
+
+    // 混淆后的文件名称，必须以 .aab 结尾
+    // 支持变量: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
+    // 例如 "{applicationId}_{versionName}_{buildTime}.aab"
+    // 外部覆盖: -PandResGuard.aabFileName="{applicationId}_{channel}.aab"
+    // 以及 -PandResGuard.var.channel=google（命令行或 gradle.properties，优先于本文件）
+    // 自定义变量，例如 fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
+    // 默认文件名为: {applicationId}_{versionName}_{versionCode}.aab
+    obfuscatedBundleFileName = "duplicated-app.aab"
+    obfuscatedApkFileName = "duplicated-app.apk"
+    // APK：留空自动定位 SDK Build Tools，可指定目录覆盖
+    apkBuildToolsDir = ""
+
+    // 文件过滤规则
+    filterList = [
+        "*/arm64-v8a/*",
+        "BUNDLE-METADATA/*"
+    ]
+
+    // 过滤文案列表路径，相对于当前工作目录（可选）
+    unusedStringPath = "unused.txt"
+
+    // 保留 en,en-xx,zh,zh-xx 等语言，其余均删除（可选）
+    languageWhiteList = ["en", "zh"]
+
+    // 默认关闭 VirusTotal 上传，不要将 API key 硬编码到仓库
+    enableVirusTotalUpload = false
+    virusTotalApiKey = System.getenv("VIRUSTOTAL_API_KEY") ?: ""
+}
+```
+
+**Kotlin DSL（.kts）：**
+
+```kotlin
+import com.bytedance.android.plugin.extensions.AndResGuardExtension
+
+configure<AndResGuardExtension> {
+    // 输出格式：aab、apk、all，默认 aab
+    format = "aab"
+    // 是否开启资源混淆，默认 true
+    enableObfuscate = true
+    // 是否生成随机资源名称，默认 false
+    useRandomName = false
+    // 是否给媒体文件追加字节以修改 MD5，默认 false
+    enableMutateMd5 = false
+    // 默认稳定修改（相同输入得到相同结果）；改变种子可得到另一份稳定结果
+    mutateMd5Seed = ""
+    // 是否允许去除重复资源，默认 false
+    mergeDuplicatedRes = true
+    enableCompressImages = false
+    imageCompressionToolsDir = ""
+    // 是否允许过滤文件，默认 false
+    enableFilterFiles = false
+    // 是否允许过滤文案，默认 false
+    enableFilterStrings = false
+    // 是否移除 AAB 的 BUNDLE-METADATA，默认 true
+    removeBundleMetadata = true
+    // 是否移除 root 目录，默认 false
+    removeRootFiles = false
+    // removeBundleMetadata 开启时，保留匹配的 BUNDLE-METADATA 文件
+    bundleMetaDataWhiteList = setOf(
+        "com.example.metadata"
+    )
+
+    // 用于增量混淆的 mapping 文件（可选）
+    // mappingFile = file("mapping.txt").toPath()
+
+    // 白名单规则，自定义的白名单会与内置白名单合并
+    whiteList = setOf(
+        "*.R.raw.*",
+        "*.R.drawable.icon"
+    )
+
+    // 混淆后的文件名称，必须以 .aab 结尾
+    // 支持变量: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
+    // 例如 "{applicationId}_{versionName}_{buildTime}.aab"
+    // 外部覆盖: -PandResGuard.aabFileName="{applicationId}_{channel}.aab"
+    // 以及 -PandResGuard.var.channel=google（命令行或 gradle.properties，优先于本文件）
+    // 自定义变量，例如 fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
+    // 默认文件名为: {applicationId}_{versionName}_{versionCode}.aab
+    obfuscatedBundleFileName = "duplicated-app.aab"
+    obfuscatedApkFileName = "duplicated-app.apk"
+    // APK：留空自动定位 SDK Build Tools，可指定目录覆盖
+    apkBuildToolsDir = ""
+
+    // 文件过滤规则
+    filterList = setOf(
+        "*/arm64-v8a/*",
+        "BUNDLE-METADATA/*"
+    )
+
+    // 过滤文案列表路径，相对于当前工作目录（可选）
+    unusedStringPath = "unused.txt"
+
+    // 保留 en,en-xx,zh,zh-xx 等语言，其余均删除（可选）
+    languageWhiteList = setOf("en", "zh")
+
+    // 默认关闭 VirusTotal 上传，不要将 API key 硬编码到仓库
+    enableVirusTotalUpload = false
+    virusTotalApiKey = System.getenv("VIRUSTOTAL_API_KEY") ?: ""
+}
+```
+
+#### 3. 执行混淆
+
+统一命令按 `format` 选择打包和处理任务，默认只注册 Release 变体：
+
+```bash
+./gradlew :app:andresguardRelease
+# 有 flavor 时，例如：
+./gradlew :app:andresguardFreeRelease
+```
+
+| format | 处理范围 |
 | --- | --- |
-| format | aab；可选 apk、all |
-| enableObfuscate | true；资源名称和文件路径混淆，保留资源 ID 和文本值 |
-| whiteList | 默认 SDK 白名单；用户规则追加，用于通过名称动态读取的资源 |
-| mappingFile | null；复用旧 mapping，建议为两种格式分别保留各自产物目录中的 mapping |
-| mergeDuplicatedRes | false；合并重复资源文件 |
-| enableCompressImages | false；无损压缩 PNG/JPEG/GIF/静态 WebP，只替换更小结果 |
-| imageCompressionToolsDir | 空；默认使用 JAR 内置工具，可覆盖 |
-| imageCompressionCacheDir | null；默认项目根目录 .gradle/andresguard/image-cache |
-| apkBuildToolsDir | 空；默认从 Android SDK 选择最新稳定目录名的 Build Tools |
-| useRandomName | false；随机混淆名称 |
-| enableMutateMd5 / mutateMd5Seed | false / 空；确定性媒体 MD5 修改 |
-| enableFilterFiles / filterList | false / 空；原有原生库等过滤规则 |
-| enableFilterStrings / unusedStringPath / languageWhiteList | false / 空 / 空；按 unused.txt、语言规则过滤文本资源 |
-| removeBundleMetadata / bundleMetaDataWhiteList | true / 空；仅针对 AAB 的 BUNDLE-METADATA |
-| removeRootFiles | false；移除可选根目录文件，使用前确认应用不依赖它们 |
-| obfuscatedBundleFileName / obfuscatedApkFileName | 空；分别配置 AAB/APK 文件名 |
-| fileNameVariables | 空；文件名模板的自定义变量 |
-| allowDebugSignFallback | false；仅测试时可显式允许 debug 签名回退 |
-| enableVirusTotalUpload / virusTotalApiKey | false / 空；可选上传最终产物 |
+| 不配置 / `aab` | AAB |
+| `apk` | APK |
+| `all` | 同时处理 AAB 和 APK |
 
-文件名模板支持 `{applicationId}`、`{versionName}`、`{versionCode}`、`{variantName}`、`{buildTime}`、`{format}` 和自定义变量。可用 `-PandResGuard.aabFileName=...`、`-PandResGuard.apkFileName=...`、`-PandResGuard.var.NAME=...` 覆盖。文件名必须保持相应的 .aab 或 .apk 后缀。
+APK 仅支持普通单 APK / universal APK；split APK、ABI/density 拆分输出及 APKS 集合暂不支持。AAB 顶层 `res/` 保留，混淆其子目录、文件名和资源名称。资源 ID 与文本值保持不变。
 
-图片压缩失败会保留原图、打印警告并继续打包；九宫格、APNG、动画 WebP 不做优化。内置图片工具支持 macOS ARM64/x86_64、Windows x86_64 和 Linux x86_64 glibc。macOS 工具未进行 Developer ID 公证，可通过工具目录覆盖。
+Release 变体需要有效 `signingConfig`。无签名配置时默认报错；`allowDebugSignFallback = true` 仅用于测试。
 
-## APK 支持边界
+#### 4. 产物位置
 
-需要 JDK 17+、Android SDK Build Tools 35+。APK 使用 AAPT2 在 binary/protobuf 资源格式间转换，复用资源处理逻辑，再恢复 APK 目录、保持 DEX/原生库内容和 ZIP 压缩方式，确保 resources.arsc 不压缩，进行 16 KB 原生库对齐，再使用 apksigner 签名并验证。
+处理后的产物统一放在应用模块的 `build/outputs/andresguard/`，APK、AAB 和各自的 mapping 分目录保存，不覆盖 Android 原始产物。以 `app` 模块、`release` 变体为例：
 
-当前只支持普通单 APK / universal APK。Split APK、ABI/density 拆分输出、APKS 集合会明确拒绝。该入口直接处理 Gradle 生成的 APK，不要求从 AAB 生成 APK。
+```text
+app/build/outputs/
+├── andresguard/
+│   ├── aab/release/
+│   │   ├── <文件名>.aab
+│   │   ├── resources-mapping.txt
+│   │   └── base-duplicated.txt
+│   └── apk/release/
+│       ├── <文件名>.apk
+│       ├── resources-mapping.txt
+│       └── base-duplicated.txt
+├── bundle/release/       # Android 原始 AAB
+└── apk/release/          # Android 原始 APK
+```
 
-release 变体应配置有效 signingConfig；没有可用配置默认失败。原始输入保持不变，处理失败保留已有输出。APK 未签名输出只可通过 CLI 的 `--disable-sign=true` 请求。
+`resources-mapping.txt` 在启用资源混淆时生成，`base-duplicated.txt` 在启用重复资源合并时生成。每种格式使用自己的报告目录。
 
-## 命令行
+- 默认文件名：`{applicationId}_{versionName}_{versionCode}.aab` / `.apk`。
+- 自定义文件名：`obfuscatedBundleFileName` / `obfuscatedApkFileName`。
+- 有 flavor 时，AndResGuard 目录使用完整变体名，例如 `aab/freeRelease/`、`apk/freeRelease/`；原始产物目录由 AGP 决定。
+- 仅配置 `aab` 或 `apk` 时只生成相应的新产物；旧产物不会自动删除。
+- 命令行工具的输出位置由 `--output` 指定。
+
+### 图片无损压缩
+
+可选配置 `imageCompressionCacheDir = rootProject.file("custom-cache/images").toPath()` 来指定其他缓存目录；默认不需要设置。若希望 `clean` 后仍可复用，请选择 `build/` 之外的目录。
+
+Gradle 插件自动将成功的压缩结果缓存在项目根目录的 `.gradle/andresguard/image-cache/`，`gradlew clean` 不会清除它。每次打包仍会读取原图；内容相同且压缩参数、工具内容和平台未改变时，直接将缓存图片写入新的 AAB/APK，不修改源文件。不再缩小的结果也会缓存，压缩失败则不缓存。日志中的 `cached` 表示命中次数。缓存损坏时重新压缩，缓存读写失败时警告并继续；需要强制重新压缩时删除该目录即可。命令行默认不使用持久缓存。
+
+设置 `enableCompressImages = true`，即可处理所有模块 `res/` 和 `assets/` 下的 PNG、JPG/JPEG、GIF（含动画）和静态 WebP。保持原格式和路径，不降低分辨率或画质，保留工具支持的元数据；仅当文件变小时替换。已优化的图片可能不再缩小，解码后的内存占用通常不变。
+
+压缩工具已随 JAR 打包，无需额外安装、下载或配置目录。支持 macOS ARM64（Apple Silicon）/x86_64（Intel）、Windows x86_64 和 Linux x86_64（glibc，非 Alpine/musl）。运行时自动选择平台，在本次处理的临时目录解压并校验 SHA-256，处理结束后清理。关闭图片压缩时不会解压工具。
+
+`imageCompressionToolsDir` 默认为空，表示使用内置工具；仅在需要覆盖工具版本或使用其他平台时设置，例如 `imageCompressionToolsDir = "/opt/homebrew/bin"`。压缩工具被系统阻止、缺失、失败或超时时，输出 `[AndResGuard WARNING]` 警告，保留原图并继续混淆和打包。同一格式失败后，本次处理跳过该格式后续压缩，避免重复启动和警告。临时目录创建或清理失败也只输出警告；主动取消任务仍会中断。
+
+Nine-patch（包括带 Android `np*` 块的编译图片）、APNG 和动画 WebP 会跳过并记录。其他格式（如 BMP、SVG）保持原样。日志输出优化数量、未缩小数量、跳过数量、因失败保留原图的数量和节省字节数；该字节数是图片文件大小差值，最终 AAB/APK 大小还受 ZIP 压缩影响。压缩在资源混淆及 MD5 修改之前执行。
+
+命令行只需增加 `--compress-images=true`；`--image-compression-tools-dir` 是可选覆盖参数。此功能通过命令行参数或 Gradle 配置启用，XML 配置暂不支持。工具版本、来源、许可证及重新生成方法见 [内置工具说明](core/src/main/resources/image-tools/NOTICE.md)。
+
+内置 macOS 工具未进行 Developer ID 公证；若构建机阻止执行，可用 imageCompressionToolsDir 指向获准运行的工具。
+
+### 二、命令行工具
+
+#### 1. 构建 JAR
 
 ```bash
 ./gradlew :core:shadowJar
-java -jar core/build/libs/AndResGuard-1.1.0.jar help
-java -jar core/build/libs/AndResGuard-1.1.0.jar obfuscate \
-  --input=app.apk --output=guarded.apk --config=config.xml \
-  --build-tools-dir=/path/to/android/sdk/build-tools/35.0.0
 ```
 
-AAB 使用同一个 `obfuscate` 命令，将 input/output 换为 .aab。APK 的 Build Tools 也可由 ANDROID_HOME 或 ANDROID_SDK_ROOT 定位。CLI 默认使用 debug 签名，正式产物必须提供 `--storeFile`、`--storePassword`、`--keyAlias`、`--keyPassword`。完整参数见 `help obfuscate`。
+生成 `core/build/libs/AndResGuard-1.1.0.jar`，以下命令按 JAR 已复制为当前目录的 `AndResGuard.jar` 举例。
 
-原有独立 AAB 过滤命令保留，输入仍为 AAB。
+#### 2. 准备配置文件
 
-## 验证与来源
+命令行工具需要一个 XML 配置文件来定义白名单和过滤规则，示例如下：
 
-```bash
-ANDROID_HOME=/path/to/android/sdk ./gradlew :core:test :core:shadowJar :plugin:compileKotlin
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<resguard>
+    <!-- 白名单规则 -->
+    <issue id="whitelist" isactive="true">
+        <path value="*.R.raw.*"/>
+        <path value="*.R.drawable.icon"/>
+    </issue>
+
+    <!-- 文件过滤规则（可选） -->
+    <filter isactive="true">
+        <rule value="*/arm64-v8a/*"/>
+        <rule value="BUNDLE-METADATA/*"/>
+    </filter>
+
+    <!-- 文案过滤配置（可选） -->
+    <filter-str isactive="true">
+        <path value="unused.txt"/>
+        <language value="en"/>
+        <language value="zh"/>
+    </filter-str>
+</resguard>
 ```
 
-APK 集成测试使用真实 AAPT2、zipalign、apksigner；没有 SDK 时跳过 APK 集成测试。测试覆盖资源 ID、文本、引用路径、白名单、图片像素、DEX/原生库内容、签名、压缩方式、过滤、split 拒绝和失败时保留产物。
+XML 解析器只识别上面示例中的 `issue`、`filter` 和 `filter-str` 元素。`useRandomName`、`enableMutateMd5`、VirusTotal 上传和 BUNDLE-METADATA 白名单目前仅支持 Gradle 插件配置，命令行没有对应参数。
 
-本项目保留原 AabResGuard 的许可与来源信息。APK 重打包、resources.arsc 压缩约束和先对齐再签名的流程参考 [shwenzhang/AndResGuard](https://github.com/shwenzhang/AndResGuard)，使用当前 SDK 工具实现，没有引入其旧 Gradle 插件和 ARSC 解析器。
+#### 3. 执行混淆
+
+```cmd
+java -jar AndResGuard.jar obfuscate \
+  --input=app.aab \
+  --output=obfuscated-app.aab \
+  --config=config.xml \
+  --merge-duplicated-res=true \
+  --remove-bundle-metadata=true \
+  --remove-root-files=false
+```
+
+APK 使用同一命令，将 `--input` / `--output` 改为 `.apk`。使用 `--build-tools-dir=/path/to/sdk/build-tools/35.0.0` 指定工具目录，或设置 ANDROID_HOME / ANDROID_SDK_ROOT。
+
+**必选参数：**
+
+| 参数 | 说明 |
+|------|------|
+| `--input` | 输入 AAB 或普通单 APK 的路径 |
+| `--output` | 处理后输出路径，后缀须与输入格式相同 |
+| `--config` | 配置文件路径 |
+
+**可选参数：**
+
+| 参数 | 说明 |
+|------|------|
+| `--mapping` | 增量混淆的 mapping 文件路径 |
+| `--build-tools-dir` | APK 的 Android SDK Build Tools 35+ 目录 |
+| `--compress-images=true` | 启用无损图片压缩 |
+| `--image-compression-tools-dir` | 可选：覆盖内置图片工具目录 |
+| `--merge-duplicated-res=true` | 去除重复资源 |
+| `--remove-bundle-metadata=true` | 移除 BUNDLE-METADATA |
+| `--remove-root-files=true` | 移除 root 目录文件 |
+| `--disable-sign=true` | 禁用签名 |
+| `--storeFile` | 签名 keystore 文件路径 |
+| `--storePassword` | keystore 密码 |
+| `--keyAlias` | key alias |
+| `--keyPassword` | key 密码 |
+
+CLI 默认使用 debug 签名，正式产物需提供签名参数。`--remove-root-files=true` 会整目录删除 root 内容，默认不启用。
