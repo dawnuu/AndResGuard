@@ -39,6 +39,17 @@ def main():
         assert 'AndResGuard apk output:' in output if mode != 'default' else 'AndResGuard apk output:' not in output
         results[mode] = {'tasks': sorted(tasks), 'built': True}
 
+    # One project property must name both formats, including legacy .aab templates.
+    shared = run([wrapper, 'andresguardRelease', '-PguardFormat=all',
+                  '-PandResGuard.fileName=shared_{channel}.aab', '-PandResGuard.var.channel=store',
+                  '--console=plain'], demo)
+    for kind in ('aab', 'apk'):
+        expected = demo / ('app/build/outputs/andresguard/' + kind + '/release/shared_store.' + kind)
+        assert expected.is_file(), 'Shared file-name override did not produce ' + str(expected)
+        assert str(expected) in shared, 'Task did not report the overridden ' + kind + ' output'
+    results['sharedFileName'] = {'projectProperty': 'andResGuard.fileName',
+                                 'template': 'shared_{channel}.aab', 'channel': 'store', 'verified': True}
+
     sdk = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
     if not sdk:
         for line in (demo / 'local.properties').read_text().splitlines():

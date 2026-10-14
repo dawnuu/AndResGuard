@@ -15,7 +15,8 @@
 | 配置块 | `aabResGuard { ... }` | `andResGuard { ... }` |
 | 处理任务 | `aabresguardRelease` | `andresguardRelease` |
 | Kotlin 扩展类型 | `AabResGuardExtension` | `AndResGuardExtension` |
-| 文件名项目属性 | `aabResGuard.fileName` | `andResGuard.aabFileName` / `andResGuard.apkFileName` |
+| 文件名项目属性 | `aabResGuard.fileName` | `andResGuard.fileName` |
+| 文件名模板 | `obfuscatedBundleFileName` | `obfuscatedFileName`（APK/AAB 共用） |
 | 自定义变量项目属性 | `aabResGuard.var.NAME` | `andResGuard.var.NAME` |
 
 已有白名单、压缩、过滤等配置可以继续复用。新增 `format`，不配置时仍处理 AAB；需要 APK 或两种格式时设置 `apk` 或 `all`。资源处理统一执行 `andresguardRelease`，普通 `bundleRelease`、`assembleRelease` 不再自动运行混淆。
@@ -28,20 +29,13 @@
 
 #### 1. 接入插件
 
-当前版本为 `1.1.0`，尚未发布到 Maven Central。先在 AndResGuard 工程生成本地 Maven 仓库：
+推荐使用 Gradle plugins DSL 和版本目录接入。以下以 `1.1.0` 的 Maven Central 发布坐标为例，该版本发布后即可使用。
 
-```bash
-./gradlew :core:publishAllPublicationsToLocalBuildRepository :plugin:publishAllPublicationsToLocalBuildRepository
-```
-
-使用方在 `settings.gradle` 配置插件仓库，并在依赖仓库加入相同的本地 Maven 路径；以下路径按 AndResGuard 与应用工程位于同一父目录举例。
-
-**Groovy DSL：**
+在 `settings.gradle` 配置仓库：
 
 ```groovy
 pluginManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
         gradlePluginPortal()
@@ -49,7 +43,6 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
     }
@@ -61,7 +54,6 @@ dependencyResolutionManagement {
 ```kotlin
 pluginManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
         gradlePluginPortal()
@@ -69,14 +61,13 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
     }
 }
 ```
 
-保留原来的版本目录接入方式，在 `gradle/libs.versions.toml` 中声明：
+在 `gradle/libs.versions.toml` 中声明版本和插件：
 
 ```toml
 [versions]
@@ -86,7 +77,7 @@ andresguard = "1.1.0"
 andresguard = { id = "io.github.dawnuu.andresguard", version.ref = "andresguard" }
 ```
 
-在根工程声明，在应用模块启用：
+在根工程声明，在应用模块启用；下面的写法同时适用于 Groovy/Kotlin DSL：
 
 ```groovy
 // 根工程 build.gradle / build.gradle.kts
@@ -101,7 +92,7 @@ plugins {
 }
 ```
 
-已有 `buildscript` 接入方式也可保留：将 classpath 改为 `io.github.dawnuu:andresguard-plugin:1.1.0`，apply ID 改为 `io.github.dawnuu.andresguard`，并在 buildscript 仓库加入本地 Maven 路径。
+已有 `buildscript` 接入方式也可保留：仓库使用 `google()`、`mavenCentral()`，classpath 使用 `io.github.dawnuu:andresguard-plugin:1.1.0`，apply ID 使用 `io.github.dawnuu.andresguard`。
 
 需要 JDK 17+；处理 APK 时还需要 Android SDK Build Tools 35+。
 
@@ -138,6 +129,7 @@ andResGuard {
     // 是否移除 AAB 的 BUNDLE-METADATA，默认 true
     removeBundleMetadata = true
     // 是否移除 root 目录，默认 false
+    // 开启后需自行测试稳定性
     removeRootFiles = false
     // removeBundleMetadata 开启时，保留匹配的 BUNDLE-METADATA 文件
     bundleMetaDataWhiteList = [
@@ -153,17 +145,14 @@ andResGuard {
         "*.R.drawable.icon"
     ]
 
-    // 混淆后的文件名称，必须以 .aab 结尾
+    // AAB/APK 共用文件名模板，后缀按输出格式自动匹配
     // 支持变量: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
     // 例如 "{applicationId}_{versionName}_{buildTime}.aab"
-    // 外部覆盖: -PandResGuard.aabFileName="{applicationId}_{channel}.aab"
+    // 外部覆盖: -PandResGuard.fileName="{applicationId}_{channel}"
     // 以及 -PandResGuard.var.channel=google（命令行或 gradle.properties，优先于本文件）
     // 自定义变量，例如 fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
-    // 默认文件名为: {applicationId}_{versionName}_{versionCode}.aab
-    obfuscatedBundleFileName = "duplicated-app.aab"
-    obfuscatedApkFileName = "duplicated-app.apk"
-    // APK：留空自动定位 SDK Build Tools，可指定目录覆盖
-    apkBuildToolsDir = ""
+    // 默认文件名为: {applicationId}_{versionName}_{versionCode}.aab / .apk
+    obfuscatedFileName = "duplicated-app"
 
     // 文件过滤规则
     filterList = [
@@ -186,9 +175,7 @@ andResGuard {
 **Kotlin DSL（.kts）：**
 
 ```kotlin
-import com.bytedance.android.plugin.extensions.AndResGuardExtension
-
-configure<AndResGuardExtension> {
+andResGuard {
     // 输出格式：aab、apk、all，默认 aab
     format = "aab"
     // 是否开启资源混淆，默认 true
@@ -210,6 +197,7 @@ configure<AndResGuardExtension> {
     // 是否移除 AAB 的 BUNDLE-METADATA，默认 true
     removeBundleMetadata = true
     // 是否移除 root 目录，默认 false
+    // 开启后需自行测试稳定性
     removeRootFiles = false
     // removeBundleMetadata 开启时，保留匹配的 BUNDLE-METADATA 文件
     bundleMetaDataWhiteList = setOf(
@@ -225,17 +213,14 @@ configure<AndResGuardExtension> {
         "*.R.drawable.icon"
     )
 
-    // 混淆后的文件名称，必须以 .aab 结尾
+    // AAB/APK 共用文件名模板，后缀按输出格式自动匹配
     // 支持变量: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
     // 例如 "{applicationId}_{versionName}_{buildTime}.aab"
-    // 外部覆盖: -PandResGuard.aabFileName="{applicationId}_{channel}.aab"
+    // 外部覆盖: -PandResGuard.fileName="{applicationId}_{channel}"
     // 以及 -PandResGuard.var.channel=google（命令行或 gradle.properties，优先于本文件）
     // 自定义变量，例如 fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
-    // 默认文件名为: {applicationId}_{versionName}_{versionCode}.aab
-    obfuscatedBundleFileName = "duplicated-app.aab"
-    obfuscatedApkFileName = "duplicated-app.apk"
-    // APK：留空自动定位 SDK Build Tools，可指定目录覆盖
-    apkBuildToolsDir = ""
+    // 默认文件名为: {applicationId}_{versionName}_{versionCode}.aab / .apk
+    obfuscatedFileName = "duplicated-app"
 
     // 文件过滤规则
     filterList = setOf(
@@ -255,6 +240,8 @@ configure<AndResGuardExtension> {
 }
 ```
 
+文件名模板可以省略后缀，也可以继续写原来的 `.aab` 或 `.apk` 后缀；插件按输出格式自动匹配。`format = "all"` 时，一份模板生成同名的 AAB 和 APK，分别存入各自目录。
+
 #### 3. 执行混淆
 
 统一命令按 `format` 选择打包和处理任务，默认只注册 Release 变体：
@@ -270,8 +257,6 @@ configure<AndResGuardExtension> {
 | 不配置 / `aab` | AAB |
 | `apk` | APK |
 | `all` | 同时处理 AAB 和 APK |
-
-APK 仅支持普通单 APK / universal APK；split APK、ABI/density 拆分输出及 APKS 集合暂不支持。AAB 顶层 `res/` 保留，混淆其子目录、文件名和资源名称。资源 ID 与文本值保持不变。
 
 Release 变体需要有效 `signingConfig`。无签名配置时默认报错；`allowDebugSignFallback = true` 仅用于测试。
 
@@ -297,7 +282,7 @@ app/build/outputs/
 `resources-mapping.txt` 在启用资源混淆时生成，`base-duplicated.txt` 在启用重复资源合并时生成。每种格式使用自己的报告目录。
 
 - 默认文件名：`{applicationId}_{versionName}_{versionCode}.aab` / `.apk`。
-- 自定义文件名：`obfuscatedBundleFileName` / `obfuscatedApkFileName`。
+- 自定义文件名：`obfuscatedFileName`；外部覆盖使用 `andResGuard.fileName`。
 - 有 flavor 时，AndResGuard 目录使用完整变体名，例如 `aab/freeRelease/`、`apk/freeRelease/`；原始产物目录由 AGP 决定。
 - 仅配置 `aab` 或 `apk` 时只生成相应的新产物；旧产物不会自动删除。
 - 命令行工具的输出位置由 `--output` 指定。
@@ -359,6 +344,8 @@ Nine-patch（包括带 Android `np*` 块的编译图片）、APNG 和动画 WebP
 ```
 
 XML 解析器只识别上面示例中的 `issue`、`filter` 和 `filter-str` 元素。`useRandomName`、`enableMutateMd5`、VirusTotal 上传和 BUNDLE-METADATA 白名单目前仅支持 Gradle 插件配置，命令行没有对应参数。
+
+文件名模板可以省略后缀，也可以继续写原来的 `.aab` 或 `.apk` 后缀；插件按输出格式自动匹配。`format = "all"` 时，一份模板生成同名的 AAB 和 APK，分别存入各自目录。
 
 #### 3. 执行混淆
 

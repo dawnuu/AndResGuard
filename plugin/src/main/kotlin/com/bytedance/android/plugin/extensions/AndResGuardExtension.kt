@@ -11,7 +11,6 @@ open class AndResGuardExtension {
     var format: String = "aab"
     // Empty uses the latest stable Android SDK Build Tools (35+ required for APK).
     var apkBuildToolsDir: String = ""
-    var obfuscatedApkFileName: String = ""
     var enableObfuscate: Boolean = true
     var mappingFile: Path? = null
     var useRandomName: Boolean = false
@@ -78,9 +77,9 @@ open class AndResGuardExtension {
         }
 
     var bundleMetaDataWhiteList: Set<String>? = HashSet()
-    var obfuscatedBundleFileName: String = ""
+    var obfuscatedFileName: String = ""
 
-    // Custom variables usable in obfuscatedBundleFileName as {name}; they override built-in ones
+    // AAB/APK share this template; the task chooses the file extension.
     var fileNameVariables: Map<String, String> = emptyMap()
     var mergeDuplicatedRes: Boolean = false
     var enableFilterFiles: Boolean = false
@@ -106,7 +105,7 @@ open class AndResGuardExtension {
                 "\tmutateMd5Seed=$mutateMd5Seed\n" +
                 "\tenableVirusTotalUpload=$enableVirusTotalUpload\n" +
                 "\twhiteList=${if (whiteList == null) null else whiteList}\n" +
-                "\tobfuscatedBundleFileName=$obfuscatedBundleFileName\n" +
+                "\tobfuscatedFileName=$obfuscatedFileName\n" +
                 "\tfileNameVariables=${fileNameVariables.keys}\n" +
                 "\tmergeDuplicatedRes=$mergeDuplicatedRes\n" +
                 "\tenableFilterFiles=$enableFilterFiles\n" +

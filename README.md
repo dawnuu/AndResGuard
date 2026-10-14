@@ -15,7 +15,8 @@ Update integration names and the processing command when migrating from AabResGu
 | Configuration block | `aabResGuard { ... }` | `andResGuard { ... }` |
 | Processing task | `aabresguardRelease` | `andresguardRelease` |
 | Kotlin extension type | `AabResGuardExtension` | `AndResGuardExtension` |
-| File-name project property | `aabResGuard.fileName` | `andResGuard.aabFileName` / `andResGuard.apkFileName` |
+| File-name project property | `aabResGuard.fileName` | `andResGuard.fileName` |
+| Output template | `obfuscatedBundleFileName` | `obfuscatedFileName` (shared by AAB/APK) |
 | Custom-variable property | `aabResGuard.var.NAME` | `andResGuard.var.NAME` |
 
 Existing whitelist, compression and filtering settings can be reused. The new format option defaults to AAB; select apk or all as needed. Use andresguardRelease for resource processing: ordinary bundleRelease and assembleRelease no longer run obfuscation automatically.
@@ -28,20 +29,13 @@ Both Gradle Plugin and standalone JAR integration are supported.
 
 #### 1.1 Add the plugin
 
-Version `1.1.0` is not yet published to Maven Central. Build a local Maven repository in AndResGuard:
+Use Gradle plugins DSL with a version catalog. The examples use the Maven Central coordinates for version `1.1.0`, usable once that version is published.
 
-```bash
-./gradlew :core:publishAllPublicationsToLocalBuildRepository :plugin:publishAllPublicationsToLocalBuildRepository
-```
-
-Configure plugin and dependency repositories in the consuming project's settings. The paths below assume AndResGuard and the app project are siblings.
-
-**Groovy DSL:**
+Configure repositories in settings.gradle:
 
 ```groovy
 pluginManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
         gradlePluginPortal()
@@ -49,7 +43,6 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
     }
@@ -61,7 +54,6 @@ dependencyResolutionManagement {
 ```kotlin
 pluginManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
         gradlePluginPortal()
@@ -69,14 +61,13 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositories {
-        maven { url = uri("../AndResGuard/build/maven") }
         google()
         mavenCentral()
     }
 }
 ```
 
-Keep the version-catalog integration in `gradle/libs.versions.toml`:
+Declare the version and plugin in gradle/libs.versions.toml:
 
 ```toml
 [versions]
@@ -86,7 +77,7 @@ andresguard = "1.1.0"
 andresguard = { id = "io.github.dawnuu.andresguard", version.ref = "andresguard" }
 ```
 
-Declare the plugin in the root project and apply it in the app module:
+Declare the plugin in the root project and apply it in the app module. This syntax works with both Groovy and Kotlin DSL:
 
 ```groovy
 // Root build.gradle / build.gradle.kts
@@ -101,7 +92,7 @@ plugins {
 }
 ```
 
-Existing buildscript integration can also be retained: use classpath `io.github.dawnuu:andresguard-plugin:1.1.0`, apply ID `io.github.dawnuu.andresguard`, and add the local Maven path to buildscript repositories.
+Existing buildscript integration can be retained: use google() and mavenCentral(), classpath `io.github.dawnuu:andresguard-plugin:1.1.0`, and apply ID `io.github.dawnuu.andresguard`.
 
 JDK 17+ is required. APK processing additionally requires Android SDK Build Tools 35+.
 
@@ -138,6 +129,7 @@ andResGuard {
     // Remove AAB BUNDLE-METADATA; default: true
     removeBundleMetadata = true
     // Remove files in the root directory; default: false
+    // Test application stability yourself before enabling this option
     removeRootFiles = false
     // Keep matching BUNDLE-METADATA files when removeBundleMetadata is true
     bundleMetaDataWhiteList = [
@@ -153,17 +145,14 @@ andResGuard {
         "*.R.drawable.icon"
     ]
 
-    // Obfuscated output name; it must end with .aab
+    // Shared AAB/APK output template; the extension follows the output format
     // Placeholders: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
     // e.g. "{applicationId}_{versionName}_{buildTime}.aab"
-    // Override from outside: -PandResGuard.aabFileName="{applicationId}_{channel}.aab"
+    // Override from outside: -PandResGuard.fileName="{applicationId}_{channel}"
     // and -PandResGuard.var.channel=google (command line or gradle.properties; wins over this file)
     // Custom variables, e.g. fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
-    // Default: {applicationId}_{versionName}_{versionCode}.aab
-    obfuscatedBundleFileName = "duplicated-app.aab"
-    obfuscatedApkFileName = "duplicated-app.apk"
-    // APK: empty locates SDK Build Tools automatically; set a directory to override
-    apkBuildToolsDir = ""
+    // Default: {applicationId}_{versionName}_{versionCode}.aab / .apk
+    obfuscatedFileName = "duplicated-app"
 
     // File filtering rules
     filterList = [
@@ -186,9 +175,7 @@ andResGuard {
 **Kotlin DSL (`.kts`):**
 
 ```kotlin
-import com.bytedance.android.plugin.extensions.AndResGuardExtension
-
-configure<AndResGuardExtension> {
+andResGuard {
     // Output format: aab, apk or all; default: aab
     format = "aab"
     // Enable resource obfuscation; default: true
@@ -210,6 +197,7 @@ configure<AndResGuardExtension> {
     // Remove AAB BUNDLE-METADATA; default: true
     removeBundleMetadata = true
     // Remove files in the root directory; default: false
+    // Test application stability yourself before enabling this option
     removeRootFiles = false
     // Keep matching BUNDLE-METADATA files when removeBundleMetadata is true
     bundleMetaDataWhiteList = setOf(
@@ -225,17 +213,14 @@ configure<AndResGuardExtension> {
         "*.R.drawable.icon"
     )
 
-    // Obfuscated output name; it must end with .aab
+    // Shared AAB/APK output template; the extension follows the output format
     // Placeholders: {applicationId} {versionName} {versionCode} {variantName} {buildTime} {format}
     // e.g. "{applicationId}_{versionName}_{buildTime}.aab"
-    // Override from outside: -PandResGuard.aabFileName="{applicationId}_{channel}.aab"
+    // Override from outside: -PandResGuard.fileName="{applicationId}_{channel}"
     // and -PandResGuard.var.channel=google (command line or gradle.properties; wins over this file)
     // Custom variables, e.g. fileNameVariables = [channel: "google"] -> "{applicationId}_{channel}.aab"
-    // Default: {applicationId}_{versionName}_{versionCode}.aab
-    obfuscatedBundleFileName = "duplicated-app.aab"
-    obfuscatedApkFileName = "duplicated-app.apk"
-    // APK: empty locates SDK Build Tools automatically; set a directory to override
-    apkBuildToolsDir = ""
+    // Default: {applicationId}_{versionName}_{versionCode}.aab / .apk
+    obfuscatedFileName = "duplicated-app"
 
     // File filtering rules
     filterList = setOf(
@@ -255,6 +240,8 @@ configure<AndResGuardExtension> {
 }
 ```
 
+Templates may omit the extension or retain an .aab/.apk extension; the plugin applies the output format automatically. With format = "all", one template produces matching AAB/APK names in separate directories.
+
 #### 1.3 Run obfuscation
 
 The unified task selects packaging and processing dependencies from format. Only Release variants are registered:
@@ -270,8 +257,6 @@ The unified task selects packaging and processing dependencies from format. Only
 | Unset / `aab` | AAB |
 | `apk` | APK |
 | `all` | Both AAB and APK |
-
-APK support is limited to standalone/universal APKs. Split APKs, ABI/density split outputs and APKS archives are not supported. AAB keeps its top-level res/ directory while obfuscating subdirectories, file names and resource names. Resource IDs and text values are preserved.
 
 Release variants require a valid signingConfig. Missing signing configuration fails by default; allowDebugSignFallback = true is for testing only.
 
@@ -297,7 +282,7 @@ app/build/outputs/
 resources-mapping.txt is generated when resource obfuscation is enabled; base-duplicated.txt is generated when duplicate-resource merging is enabled. Reports are isolated by format.
 
 - Default names: `{applicationId}_{versionName}_{versionCode}.aab` / `.apk`.
-- Custom names: obfuscatedBundleFileName / obfuscatedApkFileName.
+- Custom template: obfuscatedFileName; use andResGuard.fileName for a project-property override.
 - Flavors use the full variant name, for example aab/freeRelease/ and apk/freeRelease/. AGP determines the original-output paths.
 - Selecting only aab or apk produces that format; existing outputs are not automatically removed.
 - CLI output location is controlled by --output.

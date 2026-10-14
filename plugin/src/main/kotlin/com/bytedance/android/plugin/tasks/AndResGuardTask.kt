@@ -7,7 +7,7 @@ import com.bytedance.android.andresguard.commands.ObfuscateResourcesCommand
 import com.bytedance.android.plugin.extensions.AndResGuardExtension
 import com.bytedance.android.plugin.internal.ResourceFormat
 import com.bytedance.android.plugin.internal.getSigningConfig
-import com.bytedance.android.plugin.internal.resolveBundleFileName
+import com.bytedance.android.plugin.internal.resolveFileName
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.Directory
@@ -63,8 +63,8 @@ open class AndResGuardTask : DefaultTask() {
         val buildTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
         fun process(input: Path, extension: String) {
             val outputDir = project.layout.buildDirectory.dir("outputs/andresguard/$extension/${variant.name}").get().asFile
-            val template = (project.findProperty("andResGuard.${extension}FileName") as? String)?.takeIf { it.isNotBlank() }
-                ?: if (extension == "apk") config.obfuscatedApkFileName else config.obfuscatedBundleFileName
+            val template = (project.findProperty("andResGuard.fileName") as? String)?.takeIf { it.isNotBlank() }
+                ?: config.obfuscatedFileName
             val versionName = variant.outputs.firstOrNull()?.versionName?.getOrElse("unspecified") ?: "unspecified"
             val versionCode = variant.outputs.firstOrNull()?.versionCode?.getOrElse(0) ?: 0
             val values = mapOf(
@@ -73,8 +73,7 @@ open class AndResGuardTask : DefaultTask() {
                 "buildTime" to buildTime, "format" to extension
             ) + config.fileNameVariables + project.properties.filterKeys { it.startsWith("andResGuard.var.") }
                 .mapKeys { it.key.removePrefix("andResGuard.var.") }.mapValues { it.value.toString() }
-            val name = resolveBundleFileName(template.ifBlank { "{applicationId}_{versionName}_{versionCode}.$extension" }, values)
-            if (!name.endsWith(".$extension")) throw GradleException("Output file name must end with .$extension: $name")
+            val name = resolveFileName(template.ifBlank { "{applicationId}_{versionName}_{versionCode}" }, values, extension)
             val output = File(outputDir, name).toPath()
             val command = ObfuscateResourcesCommand.builder()
                 .setEnableObfuscate(config.enableObfuscate).setInputPath(input).setOutputPath(output)
