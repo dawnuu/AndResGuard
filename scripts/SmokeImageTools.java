@@ -4,12 +4,12 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 
-/** Run with: java -cp core/build/libs/AabResGuard-VERSION.jar scripts/SmokeImageTools.java */
+/** Run with: java -cp core/build/libs/AndResGuard-VERSION.jar scripts/SmokeImageTools.java */
 public class SmokeImageTools {
     public static void main(String[] args) throws Exception {
-        Path work = Files.createTempDirectory("aabresguard-jar-smoke-");
+        Path work = Files.createTempDirectory("andresguard-jar-smoke-");
         try {
-            Class<?> tools = Class.forName("com.bytedance.android.aabresguard.executors.BundledImageTools");
+            Class<?> tools = Class.forName("com.bytedance.android.andresguard.executors.BundledImageTools");
             java.lang.reflect.Method extract = tools.getDeclaredMethod("extract", Path.class);
             extract.setAccessible(true);
             Path directory = (Path) extract.invoke(null, work);

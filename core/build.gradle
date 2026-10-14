@@ -45,7 +45,7 @@ protobuf {
 }
 
 shadowJar {
-    archiveBaseName = "AabResGuard"
+    archiveBaseName = "AndResGuard"
     archiveVersion = VERSION
     archiveClassifier = ''
 
@@ -56,7 +56,7 @@ shadowJar {
             project.configurations.shadow
     ]
     manifest {
-        attributes 'Main-Class': 'com.bytedance.android.aabresguard.AabResGuardMain'
+        attributes 'Main-Class': 'com.bytedance.android.andresguard.AndResGuardMain'
     }
     exclude 'META-INF/*.SF'
     exclude 'META-INF/*.DSA'
