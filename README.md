@@ -31,27 +31,9 @@ Both Gradle Plugin and standalone JAR integration are supported.
 
 Use Gradle plugins DSL with a version catalog.
 
-Configure repositories in settings.gradle:
+Configure repositories in settings.gradle or settings.gradle.kts; the following syntax works with both Groovy and Kotlin DSL:
 
 ```groovy
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-```
-
-**Kotlin DSL (settings.gradle.kts):**
-
-```kotlin
 pluginManagement {
     repositories {
         google()
@@ -92,9 +74,51 @@ plugins {
 }
 ```
 
-Existing buildscript integration can be retained: use google() and mavenCentral(), classpath `io.github.dawnuu:andresguard-plugin:1.1.0`, and apply ID `io.github.dawnuu.andresguard`.
-
-JDK 17+ is required. APK processing additionally requires Android SDK Build Tools 35+.
+> You can also use the legacy `buildscript` method:
+>
+> **Groovy DSL:**
+>
+> Add the dependency in the root project:
+>
+> ```gradle
+> buildscript {
+>   repositories {
+>     mavenCentral()
+>     google()
+>   }
+>   dependencies {
+>     classpath "io.github.dawnuu:andresguard-plugin:1.1.0"
+>   }
+> }
+> ```
+>
+> Apply the plugin in the application module:
+>
+> ```gradle
+> apply plugin: "io.github.dawnuu.andresguard"
+> ```
+>
+> **Kotlin DSL (`.kts`):**
+>
+> Add the dependency in the root project:
+>
+> ```kotlin
+> buildscript {
+>   repositories {
+>     mavenCentral()
+>     google()
+>   }
+>   dependencies {
+>     classpath("io.github.dawnuu:andresguard-plugin:1.1.0")
+>   }
+> }
+> ```
+>
+> Apply the plugin in the application module:
+>
+> ```kotlin
+> apply(plugin = "io.github.dawnuu.andresguard")
+> ```
 
 #### 1.2 Configuration options
 

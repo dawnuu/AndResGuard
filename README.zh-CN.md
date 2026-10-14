@@ -31,27 +31,9 @@
 
 推荐使用 Gradle plugins DSL 和版本目录接入。
 
-在 `settings.gradle` 配置仓库：
+在 `settings.gradle` 或 `settings.gradle.kts` 配置仓库，以下写法同时适用于 Groovy/Kotlin DSL：
 
 ```groovy
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-```
-
-**Kotlin DSL（settings.gradle.kts）：**
-
-```kotlin
 pluginManagement {
     repositories {
         google()
@@ -92,9 +74,47 @@ plugins {
 }
 ```
 
-已有 `buildscript` 接入方式也可保留：仓库使用 `google()`、`mavenCentral()`，classpath 使用 `io.github.dawnuu:andresguard-plugin:1.1.0`，apply ID 使用 `io.github.dawnuu.andresguard`。
-
-需要 JDK 17+；处理 APK 时还需要 Android SDK Build Tools 35+。
+> 也可以继续使用旧版 `buildscript` 方式接入：
+>
+> **Groovy DSL：**
+>
+> ```gradle
+> buildscript {
+>   repositories {
+>     mavenCentral()
+>     google()
+>   }
+>   dependencies {
+>     classpath "io.github.dawnuu:andresguard-plugin:1.1.0"
+>   }
+> }
+> ```
+>
+> 在 application module 中启用插件：
+>
+> ```gradle
+> apply plugin: "io.github.dawnuu.andresguard"
+> ```
+>
+> **Kotlin DSL（.kts）：**
+>
+> ```kotlin
+> buildscript {
+>   repositories {
+>     mavenCentral()
+>     google()
+>   }
+>   dependencies {
+>     classpath("io.github.dawnuu:andresguard-plugin:1.1.0")
+>   }
+> }
+> ```
+>
+> 在 application module 中启用插件：
+>
+> ```kotlin
+> apply(plugin = "io.github.dawnuu.andresguard")
+> ```
 
 #### 2. 配置参数
 
