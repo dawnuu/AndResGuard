@@ -10,7 +10,7 @@ import com.android.tools.build.bundletool.model.version.Version;
  */
 public class AndResGuardVersion {
 
-    private static final String CURRENT_VERSION = "1.1.0";
+    private static final String CURRENT_VERSION = "1.1.1";
 
     /**
      * Returns the version of AndResGuard being run.
