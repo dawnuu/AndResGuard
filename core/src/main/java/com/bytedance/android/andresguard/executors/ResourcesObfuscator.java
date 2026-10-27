@@ -28,6 +28,7 @@ import com.google.common.io.ByteSource;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -258,15 +259,16 @@ public class ResourcesObfuscator {
             String bundleRawPath = bundleModule.getName().getName() + "/" + entry.getPath().toString();
             String obfuscatedPath = obfuscatedEntryMap.get(bundleRawPath);
             if (obfuscatedPath != null) {
-                byte[] data = entry.getContent().read();
+                // Renaming keeps the original (zip-backed) content; nothing is loaded into the heap.
+                ByteSource content = entry.getContent();
                 // 只有图片、音视频等媒体文件才修改 MD5
                 if (enableMutateMd5 && isMediaFile(bundleRawPath)) {
-                    data = mutateData(bundleRawPath, data);
+                    content = mutateData(mutateMd5Seed, bundleRawPath, content);
                 }
                 obfuscateEntries.add(entry.toBuilder()
                         .setPath(ZipPath.create(obfuscatedPath))
                         .setFileLocation(Optional.empty())
-                        .setContent(ByteSource.wrap(data))
+                        .setContent(content)
                         .build());
             } else {
                 obfuscateEntries.add(entry);
@@ -289,19 +291,27 @@ public class ResourcesObfuscator {
      * seed + path + content, so identical input always yields identical output;
      * change the seed to get a different result.
      */
-    private byte[] mutateData(String path, byte[] data) {
-        if (data == null || data.length == 0) return data;
-        byte[] newData = new byte[data.length + 1];
-        System.arraycopy(data, 0, newData, 0, data.length);
+    static ByteSource mutateData(String mutateMd5Seed, String path, ByteSource data) throws IOException {
+        // Hash by streaming, then append the extra byte lazily so the file is never copied in memory.
+        MessageDigest digest;
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update((mutateMd5Seed + ":" + path + ":").getBytes(StandardCharsets.UTF_8));
-            digest.update(data);
-            newData[data.length] = digest.digest()[0];
+            digest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
-        return newData;
+        digest.update((mutateMd5Seed + ":" + path + ":").getBytes(StandardCharsets.UTF_8));
+        long size;
+        try (InputStream input = data.openStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            size = 0;
+            while ((count = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, count);
+                size += count;
+            }
+        }
+        if (size == 0) return data;
+        return ByteSource.concat(data, ByteSource.wrap(new byte[]{digest.digest()[0]}));
     }
 
     private Resources.ResourceTable obfuscateResourceTable(BundleModule bundleModule, Map<String, String> obfuscatedEntryMap) {

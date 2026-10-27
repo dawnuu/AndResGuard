@@ -142,6 +142,13 @@ andResGuard {
     mutateMd5Seed = ""
     // Sign with the debug keystore when no signing config is found; default: false (the build fails instead)
     allowDebugSignFallback = false
+    // Process in a short-lived JVM so the Gradle daemon heap can stay small; default: true.
+    // false restores the previous in-daemon processing.
+    processIsolation = true
+    // Max heap of that JVM; default: "4g". Override per build with -PandResGuard.workerMaxHeapSize=6g
+    workerMaxHeapSize = "4g"
+    // Extra JVM arguments for that JVM; default: empty
+    workerJvmArgs = []
     // Remove duplicate resources; default: false
     mergeDuplicatedRes = true
     // Losslessly optimize PNG/JPEG/GIF/static WebP; default: false
@@ -292,6 +299,8 @@ The unified task selects packaging and processing dependencies from format. Only
 APK processing edits binary `resources.arsc` and ZIP entries directly, without converting to AAB. Obfuscation, merging, compression and string-filter settings are shared; `removeBundleMetadata`, `bundleMetaDataWhiteList` and `removeRootFiles` apply only to AAB. APK file-filter rules match actual paths inside the APK.
 
 Release variants require a valid signingConfig. Missing signing configuration fails by default; allowDebugSignFallback = true is for testing only.
+
+Resource processing runs in a separate Gradle worker process by default. The process exits when the build finishes and its memory is released, so org.gradle.jvmargs does not need to be raised for AndResGuard. If a very large AAB hits OutOfMemoryError, raise workerMaxHeapSize.
 
 #### 1.4 Output locations
 

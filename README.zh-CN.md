@@ -138,6 +138,12 @@ andResGuard {
     mutateMd5Seed = ""
     // 找不到签名配置时是否回退到 debug 签名，默认 false（直接构建失败）
     allowDebugSignFallback = false
+    // 在独立的短生命周期 JVM 中处理，Gradle daemon 无需调大堆，默认 true；false 为旧行为（在 daemon 内处理）
+    processIsolation = true
+    // 处理进程的最大堆，默认 "4g"；也可用 -PandResGuard.workerMaxHeapSize=6g 临时覆盖
+    workerMaxHeapSize = "4g"
+    // 处理进程的额外 JVM 参数，默认为空
+    workerJvmArgs = []
     // 是否允许去除重复资源，默认 false
     mergeDuplicatedRes = true
     // 无损压缩 PNG/JPEG/GIF/静态 WebP，默认 false
@@ -288,6 +294,8 @@ andResGuard {
 APK 直接处理二进制 `resources.arsc` 和包内文件，不转换为 AAB。混淆、合并、压缩及文案过滤等配置共用；`removeBundleMetadata`、`bundleMetaDataWhiteList`、`removeRootFiles` 仅对 AAB 生效。APK 的文件过滤规则匹配其实际包内路径。
 
 Release 变体需要有效 `signingConfig`。无签名配置时默认报错；`allowDebugSignFallback = true` 仅用于测试。
+
+资源处理默认在独立的 Gradle worker 进程中执行，构建结束后该进程退出、内存随之释放，因此 `org.gradle.jvmargs` 无需为 AndResGuard 调大。处理超大 AAB 时如出现 OutOfMemoryError，调大 `workerMaxHeapSize` 即可。
 
 #### 4. 产物位置
 

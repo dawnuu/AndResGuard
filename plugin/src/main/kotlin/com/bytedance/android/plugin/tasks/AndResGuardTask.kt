@@ -3,7 +3,6 @@ package com.bytedance.android.plugin.tasks
 import com.android.build.api.variant.ApplicationVariant
 import com.android.build.api.variant.BuiltArtifactsLoader
 import com.bytedance.android.andresguard.apk.AndroidBuildTools
-import com.bytedance.android.andresguard.commands.ObfuscateResourcesCommand
 import com.bytedance.android.plugin.extensions.AndResGuardExtension
 import com.bytedance.android.plugin.internal.ResourceFormat
 import com.bytedance.android.plugin.internal.getSigningConfig
@@ -15,12 +14,14 @@ import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
+import org.gradle.workers.WorkerExecutor
 import java.io.File
 import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import javax.inject.Inject
 
-open class AndResGuardTask : DefaultTask() {
+open class AndResGuardTask @Inject constructor(private val workerExecutor: WorkerExecutor) : DefaultTask() {
     @get:Internal lateinit var variant: ApplicationVariant
     @get:Internal lateinit var bundleFile: Provider<RegularFile>
     @get:Internal lateinit var apkDirectory: Provider<Directory>
@@ -76,30 +77,49 @@ open class AndResGuardTask : DefaultTask() {
                 .mapKeys { it.key.removePrefix("andResGuard.var.") }.mapValues { it.value.toString() }
             val name = resolveFileName(template.ifBlank { "{applicationId}_{versionName}_{versionCode}" }, values, extension)
             val output = File(outputDir, name).toPath()
-            val command = ObfuscateResourcesCommand.builder()
-                .setEnableObfuscate(config.enableObfuscate).setInputPath(input).setOutputPath(output)
-                .setMergeDuplicatedResources(config.mergeDuplicatedRes)
-                .setEnableCompressImages(config.enableCompressImages)
-                .setImageCompressionToolsDir(config.imageCompressionToolsDir)
-                .setImageCompressionCacheDir(config.imageCompressionCacheDir ?: project.rootDir.resolve(".gradle/andresguard/image-cache").toPath())
-                .setApkBuildToolsDir(tools)
-                .setWhiteList(config.whiteList ?: emptySet()).setBundleMetaDataWhiteList(config.bundleMetaDataWhiteList ?: emptySet())
-                .setFilterFile(config.enableFilterFiles).setFileFilterRules(config.filterList ?: emptySet())
-                .setRemoveBundleMetadata(config.removeBundleMetadata).setRemoveRootFiles(config.removeRootFiles)
-                .setRemoveStr(config.enableFilterStrings).setUnusedStrPath(config.unusedStringPath ?: "")
-                .setLanguageWhiteList(config.languageWhiteList ?: emptySet())
-                .setUseRandomName(config.useRandomName).setEnableMutateMd5(config.enableMutateMd5).setMutateMd5Seed(config.mutateMd5Seed)
-                .setEnableVirusTotalUpload(config.enableVirusTotalUpload).setVirusTotalApiKey(config.virusTotalApiKey)
-            config.mappingFile?.let { command.setMappingPath(it) }
-            signing.storeFile?.takeIf { it.exists() }?.let {
-                command.setStoreFile(it.toPath()).setStorePassword(signing.storePassword!!)
-                    .setKeyAlias(signing.keyAlias!!).setKeyPassword(signing.keyPassword!!)
+            val queue = workQueue(config)
+            queue.submit(AndResGuardWorkAction::class.java) { p ->
+                p.input.set(input.toFile()); p.output.set(output.toFile())
+                config.mappingFile?.let { p.mappingFile.set(it.toFile()) }
+                p.enableObfuscate.set(config.enableObfuscate)
+                p.mergeDuplicatedRes.set(config.mergeDuplicatedRes)
+                p.enableCompressImages.set(config.enableCompressImages)
+                p.imageCompressionToolsDir.set(config.imageCompressionToolsDir)
+                p.imageCompressionCacheDir.set((config.imageCompressionCacheDir
+                    ?: project.rootDir.resolve(".gradle/andresguard/image-cache").toPath()).toFile())
+                p.apkBuildToolsDir.set(tools)
+                p.whiteList.set(config.whiteList ?: emptySet()); p.bundleMetaDataWhiteList.set(config.bundleMetaDataWhiteList ?: emptySet())
+                p.enableFilterFiles.set(config.enableFilterFiles); p.filterList.set(config.filterList ?: emptySet())
+                p.removeBundleMetadata.set(config.removeBundleMetadata); p.removeRootFiles.set(config.removeRootFiles)
+                p.enableFilterStrings.set(config.enableFilterStrings); p.unusedStringPath.set(config.unusedStringPath ?: "")
+                p.languageWhiteList.set(config.languageWhiteList ?: emptySet())
+                p.useRandomName.set(config.useRandomName); p.enableMutateMd5.set(config.enableMutateMd5)
+                p.mutateMd5Seed.set(config.mutateMd5Seed)
+                p.enableVirusTotalUpload.set(config.enableVirusTotalUpload); p.virusTotalApiKey.set(config.virusTotalApiKey)
+                signing.storeFile?.takeIf { it.exists() }?.let {
+                    p.storeFile.set(it); p.storePassword.set(signing.storePassword!!)
+                    p.keyAlias.set(signing.keyAlias!!); p.keyPassword.set(signing.keyPassword!!)
+                }
             }
-            command.build().execute()
+            // Run AAB and APK passes one after another so 'all' never holds two worker heaps at once.
+            queue.await()
             logger.lifecycle("AndResGuard $extension output: $output")
         }
         if (format.aab) process(bundleFile.get().asFile.toPath(), "aab")
         if (format.apk) process(apkInput!!, "apk")
+    }
+
+    private fun workQueue(config: AndResGuardExtension) = if (config.processIsolation) {
+        val heap = (project.findProperty("andResGuard.workerMaxHeapSize") as? String)?.takeIf { it.isNotBlank() }
+            ?: config.workerMaxHeapSize
+        workerExecutor.processIsolation { spec ->
+            spec.forkOptions { fork ->
+                fork.maxHeapSize = heap
+                fork.jvmArgs(config.workerJvmArgs)
+            }
+        }
+    } else {
+        workerExecutor.noIsolation()
     }
 
     private fun prepareUnusedFile(config: AndResGuardExtension) {
