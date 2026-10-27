@@ -18,6 +18,7 @@ import com.bytedance.android.andresguard.utils.Utils;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.rmi.UnexpectedException;
@@ -38,7 +39,7 @@ import java.util.zip.ZipFile;
  * Created by YangJing on 2019/10/12 .
  * Email: yangjing.yeoh@bytedance.com
  */
-public class BundleFileFilter {
+public class BundleFileFilter implements Closeable {
 
     private static final Logger logger = Logger.getLogger(BundleFileFilter.class.getName());
     private static final Set<String> FILE_SIGN = new HashSet<>(
@@ -184,5 +185,10 @@ public class BundleFileFilter {
             }
         }
         return null;
+    }
+
+    @Override
+    public void close() throws IOException {
+        bundleZipFile.close();
     }
 }

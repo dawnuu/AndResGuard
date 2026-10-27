@@ -26,6 +26,7 @@ import com.bytedance.android.andresguard.utils.FileOperation;
 import com.bytedance.android.andresguard.utils.TimeClock;
 import com.bytedance.android.andresguard.utils.VirusTotalUploader;
 import com.google.auto.value.AutoValue;
+import com.google.common.io.Closer;
 
 import org.dom4j.DocumentException;
 
@@ -224,16 +225,23 @@ public abstract class ObfuscateResourcesCommand {
         if (getInputPath().getFileName().toString().endsWith(".apk")) {
             return new ApkProcessor(this).execute();
         }
+        // Stages read the input AAB lazily until packaging; close every zip handle once at the end.
+        try (Closer closer = Closer.create()) {
+            return executeBundle(closer);
+        }
+    }
+
+    private Path executeBundle(Closer closer) throws IOException, InterruptedException {
         TimeClock timeClock = new TimeClock();
 
-        AppBundle appBundle = new AppBundleAnalyzer(getInputPath()).analyze();
+        AppBundle appBundle = closer.register(new AppBundleAnalyzer(getInputPath())).analyze();
         // filter file
         if (getFilterFile().isPresent() && getFilterFile().get()) {
             Set<String> fileFilterRules = new HashSet<>();
             if (getFileFilterRules().isPresent()) {
                 fileFilterRules = getFileFilterRules().get();
             }
-            BundleFileFilter filter = new BundleFileFilter(getInputPath(), appBundle, fileFilterRules);
+            BundleFileFilter filter = closer.register(new BundleFileFilter(getInputPath(), appBundle, fileFilterRules));
             appBundle = filter.filter();
         }
 
@@ -252,14 +260,15 @@ public abstract class ObfuscateResourcesCommand {
             if (getLanguageWhiteList().isPresent()) {
                 languageWhiteList = getLanguageWhiteList().get();
             }
-            BundleStringFilter filter =
-                    new BundleStringFilter(getInputPath(), appBundle, unusedFile.getPath(), languageWhiteList);
+            BundleStringFilter filter = closer.register(
+                    new BundleStringFilter(getInputPath(), appBundle, unusedFile.getPath(), languageWhiteList));
             appBundle = filter.filter();
         }
 
         // merge duplicated resources
         if (getMergeDuplicatedResources().isPresent() && getMergeDuplicatedResources().get()) {
-            DuplicatedResourcesMerger merger = new DuplicatedResourcesMerger(getInputPath(), appBundle, getOutputPath().getParent());
+            DuplicatedResourcesMerger merger = closer.register(
+                    new DuplicatedResourcesMerger(getInputPath(), appBundle, getOutputPath().getParent()));
             appBundle = merger.merge();
         }
 
@@ -290,7 +299,8 @@ public abstract class ObfuscateResourcesCommand {
 
         //remove BUNDLE-METADATA
         if (getRemoveBundleMetadata().isPresent() && getRemoveBundleMetadata().get()) {
-            BundleMetadataRemove bundleMetadataRemove = new BundleMetadataRemove(getInputPath(), appBundle, getBundleMetaDataWhiteList());
+            BundleMetadataRemove bundleMetadataRemove = closer.register(
+                    new BundleMetadataRemove(getInputPath(), appBundle, getBundleMetaDataWhiteList()));
             appBundle = bundleMetadataRemove.remove();
         }
 

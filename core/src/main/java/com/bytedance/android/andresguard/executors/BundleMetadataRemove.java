@@ -7,6 +7,7 @@ import com.android.tools.build.bundletool.model.BundleMetadata;
 import com.android.tools.build.bundletool.model.ZipPath;
 import com.google.common.io.ByteSource;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -21,7 +22,7 @@ import javax.annotation.Nullable;
  * @author chancey
  * @date 2025/1/24
  **/
-public class BundleMetadataRemove {
+public class BundleMetadataRemove implements Closeable {
     private ZipFile bundleZipFile;
     private final AppBundle rawAppBundle;
     private final Set<String> whiteList;
@@ -80,5 +81,10 @@ public class BundleMetadataRemove {
             }
         }
         return false;
+    }
+
+    @Override
+    public void close() throws IOException {
+        bundleZipFile.close();
     }
 }

@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.zip.ZipFile;
 
 /**
  * @author chancey
@@ -22,13 +21,11 @@ import java.util.zip.ZipFile;
  **/
 public class BaseRootFileRemove {
 
-    private ZipFile bundleZipFile;
     private AppBundle rawAppBundle;
 
 
     public BaseRootFileRemove(Path bundlePath, AppBundle rawAppBundle) throws IOException {
         checkFileExistsAndReadable(bundlePath);
-        this.bundleZipFile = new ZipFile(bundlePath.toFile());
         this.rawAppBundle = rawAppBundle;
     }
 

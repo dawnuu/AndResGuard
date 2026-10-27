@@ -12,6 +12,7 @@ import com.bytedance.android.andresguard.bundle.ResourcesTableBuilder;
 import com.bytedance.android.andresguard.bundle.ResourcesTableOperation;
 import com.bytedance.android.andresguard.utils.TimeClock;
 
+import java.io.Closeable;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -39,7 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * Created by YangJing on 2019/10/10 .
  * Email: yangjing.yeoh@bytedance.com
  */
-public class DuplicatedResourcesMerger {
+public class DuplicatedResourcesMerger implements Closeable {
     public static final String SUFFIX_FILE_DUPLICATED_LOGGER = "-duplicated.txt";
     private static final Logger logger = Logger.getLogger(DuplicatedResourcesMerger.class.getName());
     private final Path outputLogLocationDir;
@@ -190,5 +191,10 @@ public class DuplicatedResourcesMerger {
         ));
         mergeDuplicatedTotalSize += duplicatedSize;
         mergeDuplicatedTotalCount += duplicatedFileList.size();
+    }
+
+    @Override
+    public void close() throws IOException {
+        bundleZipFile.close();
     }
 }
