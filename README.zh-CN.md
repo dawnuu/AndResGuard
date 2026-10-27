@@ -302,6 +302,8 @@ Release 变体需要有效 `signingConfig`。无签名配置时默认报错；`a
 
 输入包、`andResGuard` 配置、引用的文件（mapping、unused.txt、签名 keystore、自定义压缩工具目录）以及签名身份都没有变化时，任务会被跳过（UP-TO-DATE），直接复用上次的产物。文件名模板含 `{buildTime}` 时每次都会生成新文件名，因此仍然每次执行。
 
+插件兼容 Gradle 配置缓存（`org.gradle.configuration-cache=true`）。`andResGuard` 配置、签名配置和 `-P` 参数在配置阶段读取；修改它们时 Gradle 会自动重新配置。
+
 #### 4. 产物位置
 
 处理后的产物统一放在应用模块的 `build/outputs/andresguard/`，APK、AAB 和各自的 mapping 分目录保存，不覆盖 Android 原始产物。以 `app` 模块、`release` 变体为例：

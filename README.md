@@ -307,6 +307,8 @@ Resource processing runs in a separate Gradle worker process by default. The pro
 
 When the input package, the andResGuard configuration, referenced files (mapping, unused.txt, signing keystore, custom image tools directory) and the signing identity are unchanged, the task is skipped (UP-TO-DATE) and the previous outputs are reused. A file-name template containing {buildTime} produces a new name on every run, so such builds always execute.
 
+The plugin is compatible with the Gradle configuration cache (org.gradle.configuration-cache=true). The andResGuard configuration, signing configuration and -P properties are read at configuration time; Gradle reconfigures automatically when they change.
+
 #### 1.4 Output locations
 
 Processed files live in the app module's build/outputs/andresguard/. Each format has its own artifact and mapping directory. Android's original outputs are retained. For module app and variant release:

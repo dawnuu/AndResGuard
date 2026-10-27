@@ -3,6 +3,7 @@ package com.bytedance.android.plugin
 import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.bytedance.android.plugin.extensions.AndResGuardExtension
+import com.bytedance.android.plugin.internal.AndResGuardSettings
 import com.bytedance.android.plugin.internal.ResourceFormat
 import com.bytedance.android.plugin.tasks.AndResGuardTask
 import org.gradle.api.GradleException
@@ -22,7 +23,10 @@ class AndResGuardPlugin : Plugin<Project> {
             val apk = variant.artifacts.get(SingleArtifact.APK)
             fun registerProcessor(label: String, format: ResourceFormat) =
                 project.tasks.register("andresguard$label$suffix", AndResGuardTask::class.java) { task ->
-                    task.variant = variant
+                    // Lazy, so the DSL is fully configured before the snapshot is taken.
+                    task.settings.set(project.provider {
+                        AndResGuardSettings.create(project, extension, variant, format.name.lowercase())
+                    })
                     task.bundleFile = bundle
                     task.apkDirectory = apk
                     task.builtArtifactsLoader = variant.artifacts.getBuiltArtifactsLoader()
@@ -30,7 +34,7 @@ class AndResGuardPlugin : Plugin<Project> {
                     task.resourceFormat = format.name.lowercase()
                     task.description = "Build and process ${format.name} resources for ${variant.name}"
                     task.dependsOn(if (format.aab) bundle else apk)
-                    task.trackInputsAndOutputs(extension, format)
+                    task.trackInputsAndOutputs(format)
                 }
             val aabProcessor = registerProcessor("Aab", ResourceFormat.AAB)
             val apkProcessor = registerProcessor("Apk", ResourceFormat.APK)
