@@ -283,16 +283,28 @@ public final class ApkProcessor {
     }
 
     private void writeApk(ZipFile input, Map<String, ApkEntry> files, Path output) throws IOException, InterruptedException {
+        boolean compress = options.getEnableCompressImages().orElse(false);
+        List<ImageCompressor.Request> requests = new ArrayList<>();
+        if (compress) {
+            for (ApkEntry file : files.values()) {
+                String originalPath = file.source.getName();
+                if (isImage(originalPath)) requests.add(new ImageCompressor.Request(originalPath, originalPath, () -> file.bytes(input)));
+            }
+        }
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(output));
-             ImageCompressor images = options.getEnableCompressImages().orElse(false)
-                     ? new ImageCompressor(options.getImageCompressionToolsDir().orElse(""), options.getImageCompressionCacheDir().orElse(null)) : null) {
+             ImageCompressor compressor = compress
+                     ? new ImageCompressor(options.getImageCompressionToolsDir().orElse(""), options.getImageCompressionCacheDir().orElse(null)) : null;
+             ImageCompressor.OrderedCompression images = compressor == null ? null
+                     : compressor.compressInOrder(requests, options.getImageCompressionParallelism().orElse(0))) {
             for (Map.Entry<String, ApkEntry> item : files.entrySet()) {
                 ApkEntry file = item.getValue();
                 String originalPath = file.source.getName();
-                boolean image = (originalPath.startsWith("res/") || originalPath.startsWith("assets/"))
-                        && Arrays.asList("png", "jpg", "jpeg", "gif", "webp").contains(extension(originalPath));
                 byte[] data = file.content;
-                if (images != null && image) data = images.compressImage(originalPath, file.bytes(input));
+                if (images != null && isImage(originalPath)) {
+                    byte[] compressed = images.next();
+                    // Unchanged images are streamed from the input like any other entry.
+                    if (compressed != null) data = compressed;
+                }
                 if (file.mutate) {
                     if (data == null) data = file.bytes(input);
                     byte[] mutated = Arrays.copyOf(data, data.length + 1);
@@ -315,6 +327,11 @@ public final class ApkProcessor {
                 zip.closeEntry();
             }
         }
+    }
+
+    private static boolean isImage(String path) {
+        return (path.startsWith("res/") || path.startsWith("assets/"))
+                && Arrays.asList("png", "jpg", "jpeg", "gif", "webp").contains(extension(path));
     }
 
     private void sign(AndroidBuildTools tools, Path apk) throws IOException, InterruptedException {

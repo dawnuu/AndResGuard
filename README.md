@@ -155,6 +155,9 @@ andResGuard {
     enableCompressImages = false
     // Optional override; empty uses tools bundled in the JAR
     imageCompressionToolsDir = ""
+    // Images compressed at the same time, which also bounds how many are held in memory;
+    // 0 = CPU count (at most 4), 1 = serial. Override with -PandResGuard.imageCompressionParallelism=2
+    imageCompressionParallelism = 0
     // Enable file filtering; default: false
     enableFilterFiles = false
     // Enable string filtering; default: false

@@ -19,7 +19,7 @@ final class ImageCompressionCache {
     }
 
     String key(byte[] original, List<String> command) throws IOException {
-        if (fingerprint == null) fingerprint = fingerprint();
+        String fingerprint = toolsFingerprint();
         MessageDigest digest = digest();
         // Bump this schema if optimization behavior changes outside the command flags.
         digest.update(("image-cache-v1\n" + fingerprint + "\n" + String.join("\n", command))
@@ -56,6 +56,11 @@ final class ImageCompressionCache {
         } finally {
             Files.deleteIfExists(temporary);
         }
+    }
+
+    private synchronized String toolsFingerprint() throws IOException {
+        if (fingerprint == null) fingerprint = fingerprint();
+        return fingerprint;
     }
 
     private String fingerprint() throws IOException {

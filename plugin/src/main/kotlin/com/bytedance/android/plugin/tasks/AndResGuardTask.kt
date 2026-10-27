@@ -158,6 +158,10 @@ open class AndResGuardTask @Inject constructor(private val workerExecutor: Worke
                 p.imageCompressionToolsDir.set(config.imageCompressionToolsDir)
                 p.imageCompressionCacheDir.set((config.imageCompressionCacheDir
                     ?: project.rootDir.resolve(".gradle/andresguard/image-cache").toPath()).toFile())
+                p.imageCompressionParallelism.set(
+                    (project.findProperty("andResGuard.imageCompressionParallelism") as? String)?.toIntOrNull()
+                        ?: config.imageCompressionParallelism
+                )
                 p.apkBuildToolsDir.set(tools)
                 p.whiteList.set(config.whiteList ?: emptySet()); p.bundleMetaDataWhiteList.set(config.bundleMetaDataWhiteList ?: emptySet())
                 p.enableFilterFiles.set(config.enableFilterFiles); p.filterList.set(config.filterList ?: emptySet())

@@ -150,6 +150,9 @@ andResGuard {
     enableCompressImages = false
     // 可选：覆盖内置压缩工具；留空使用随 JAR 打包的工具
     imageCompressionToolsDir = ""
+    // 同时压缩的图片数，也是同时读入内存的图片数上限；0 为 CPU 核数（最多 4），1 为串行
+    // 也可用 -PandResGuard.imageCompressionParallelism=2 临时覆盖
+    imageCompressionParallelism = 0
     // 是否允许过滤文件，默认 false
     enableFilterFiles = false
     // 是否允许过滤文案，默认 false

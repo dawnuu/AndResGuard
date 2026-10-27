@@ -4,25 +4,37 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Lossless, same-format image optimization using native command-line tools. */
 public class ImageCompressor implements AutoCloseable {
     private final String toolsDirectory;
     private final ImageCompressionCache cache;
-    private int cacheHits;
-    private boolean cacheWarning;
+    // Images may be compressed on several threads, so all shared state is thread-safe.
+    private final AtomicInteger cacheHits = new AtomicInteger();
+    private final AtomicBoolean cacheWarning = new AtomicBoolean();
     private Path work;
-    private boolean workFailed;
-    private int optimized, unchanged, skipped, failed;
-    private long savedBytes;
-    private final Set<String> failedFormats = new HashSet<>();
+    private Path bundledTools;
+    private volatile boolean workFailed;
+    private final AtomicInteger optimized = new AtomicInteger(), unchanged = new AtomicInteger(),
+            skipped = new AtomicInteger(), failed = new AtomicInteger();
+    private final AtomicLong savedBytes = new AtomicLong();
+    private final Set<String> failedFormats = ConcurrentHashMap.newKeySet();
 
     public ImageCompressor(String toolsDirectory) {
         this(toolsDirectory, null);
@@ -41,50 +53,156 @@ public class ImageCompressor implements AutoCloseable {
         String format = format(path);
         if ((!path.startsWith("res/") && !path.startsWith("assets/")) || format == null) return original;
         String toolFormat = format.equals("jpg") ? "jpeg" : format;
-        if (workFailed || failedFormats.contains(toolFormat)) { failed++; return original; }
+        if (workFailed || failedFormats.contains(toolFormat)) { failed.incrementAndGet(); return original; }
         if (shouldSkip(path, original)) {
-            skipped++;
+            skipped.incrementAndGet();
             System.out.println("[image skipped] " + displayPath);
             return original;
         }
-        if (work == null) {
-            try { work = Files.createTempDirectory("andresguard-images-"); }
-            catch (IOException | SecurityException e) {
-                workFailed = true;
-                failed++;
-                warn("Cannot create image compression temporary directory; keeping original images. " + e);
-                return original;
-            }
-        }
+        Path work = workDirectory();
+        if (work == null) { failed.incrementAndGet(); return original; }
+        Path job = null;
         try {
-            byte[] result = optimize(original, format, work);
+            // Each image gets its own directory so parallel jobs never share input/output file names.
+            job = Files.createTempDirectory(work, "job-");
+            byte[] result = optimize(original, format, job);
             if (result.length > 0 && result.length < original.length) {
-                optimized++;
-                savedBytes += original.length - result.length;
+                optimized.incrementAndGet();
+                savedBytes.addAndGet(original.length - result.length);
                 return result;
             }
-            unchanged++;
+            unchanged.incrementAndGet();
         } catch (IOException | SecurityException e) {
-            failed++;
-            failedFormats.add(toolFormat);
-            warn("Image compression failed for " + displayPath + "; keeping original image and continuing packaging. Further "
-                    + toolFormat + " compression is disabled for this run. " + e);
+            failed.incrementAndGet();
+            // Jobs already running when a tool fails may fail too; report each format once.
+            if (failedFormats.add(toolFormat)) {
+                warn("Image compression failed for " + displayPath + "; keeping original image and continuing packaging. Further "
+                        + toolFormat + " compression is disabled for this run. " + e);
+            }
+        } finally {
+            if (job != null) delete(job);
         }
         return original;
     }
 
-    @Override
-    public void close() {
-        if (work != null) {
-            try (java.util.stream.Stream<Path> files = Files.walk(work)) {
-                for (Path file : (Iterable<Path>) files.sorted(java.util.Comparator.reverseOrder())::iterator) Files.deleteIfExists(file);
-            } catch (IOException | java.io.UncheckedIOException | SecurityException e) {
-                warn("Cannot clean image compression temporary directory " + work + "; continuing packaging. " + e);
+    /** One image to compress; its bytes are read on the worker thread. */
+    public interface ImageSource {
+        byte[] read() throws IOException;
+    }
+
+    /**
+     * Compresses images on up to {@code parallelism} threads and hands the results back in request
+     * order, so output is identical to serial processing. Only about {@code parallelism} images are
+     * read into memory at a time. {@code parallelism <= 0} picks a default from the CPU count.
+     */
+    public final class OrderedCompression implements AutoCloseable {
+        private final ExecutorService executor;
+        private final Iterator<Request> pending;
+        private final ArrayDeque<Future<byte[]>> inFlight = new ArrayDeque<>();
+        private final int window;
+
+        private OrderedCompression(List<Request> requests, int parallelism) {
+            window = parallelism > 0 ? parallelism : defaultParallelism();
+            executor = Executors.newFixedThreadPool(window, runnable -> {
+                Thread thread = new Thread(runnable, "andresguard-image");
+                thread.setDaemon(true);
+                return thread;
+            });
+            pending = requests.iterator();
+            fill();
+        }
+
+        /**
+         * Returns the compressed bytes for the next request, in the order the requests were given,
+         * or {@code null} when the image is kept unchanged.
+         */
+        public byte[] next() throws IOException, InterruptedException {
+            Future<byte[]> head = inFlight.poll();
+            if (head == null) throw new IllegalStateException("No more images to compress");
+            fill();
+            try {
+                return head.get();
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof IOException) throw (IOException) cause;
+                if (cause instanceof InterruptedException) throw (InterruptedException) cause;
+                if (cause instanceof RuntimeException) throw (RuntimeException) cause;
+                if (cause instanceof Error) throw (Error) cause;
+                throw new IOException(cause);
             }
+        }
+
+        private void fill() {
+            while (inFlight.size() < window && pending.hasNext()) {
+                Request request = pending.next();
+                inFlight.add(executor.submit(() -> {
+                    byte[] original = request.source.read();
+                    byte[] result = compressImage(request.path, request.displayPath, original);
+                    return result == original ? null : result;
+                }));
+            }
+        }
+
+        @Override
+        public void close() {
+            executor.shutdownNow();
+        }
+    }
+
+    public OrderedCompression compressInOrder(List<Request> requests, int parallelism) {
+        return new OrderedCompression(requests, parallelism);
+    }
+
+    public static final class Request {
+        final String path;
+        final String displayPath;
+        final ImageSource source;
+
+        public Request(String path, String displayPath, ImageSource source) {
+            this.path = path;
+            this.displayPath = displayPath;
+            this.source = source;
+        }
+    }
+
+    static int defaultParallelism() {
+        return Math.max(1, Math.min(Runtime.getRuntime().availableProcessors(), 4));
+    }
+
+    private synchronized Path workDirectory() {
+        if (work == null && !workFailed) {
+            try { work = Files.createTempDirectory("andresguard-images-"); }
+            catch (IOException | SecurityException e) {
+                workFailed = true;
+                warn("Cannot create image compression temporary directory; keeping original images. " + e);
+            }
+        }
+        return work;
+    }
+
+    private synchronized Path bundledTools(Path fallback) throws IOException {
+        // Extract once: extracting again would overwrite tools that other threads are running.
+        if (bundledTools == null) bundledTools = BundledImageTools.extract(work != null ? work : fallback);
+        return bundledTools;
+    }
+
+    @Override
+    public synchronized void close() {
+        if (work != null) {
+            delete(work);
             work = null;
+            bundledTools = null;
         }
         System.out.printf("Image compression: optimized=%d, unchanged=%d, skipped=%d, failed=%d, cached=%d, saved=%d bytes%n",
-                optimized, unchanged, skipped, failed, cacheHits, savedBytes);
+                optimized.get(), unchanged.get(), skipped.get(), failed.get(), cacheHits.get(), savedBytes.get());
+    }
+
+    private static void delete(Path directory) {
+        try (java.util.stream.Stream<Path> files = Files.walk(directory)) {
+            for (Path file : (Iterable<Path>) files.sorted(java.util.Comparator.reverseOrder())::iterator) Files.deleteIfExists(file);
+        } catch (IOException | java.io.UncheckedIOException | SecurityException e) {
+            warn("Cannot clean image compression temporary directory " + directory + "; continuing packaging. " + e);
+        }
     }
 
     private static void warn(String message) {
@@ -100,7 +218,7 @@ public class ImageCompressor implements AutoCloseable {
                         java.nio.file.Paths.get("output." + format)));
                 byte[] result = cache.read(key, original.length);
                 if (result != null) {
-                    cacheHits++;
+                    cacheHits.incrementAndGet();
                     return result;
                 }
             } catch (IOException | SecurityException e) {
@@ -116,9 +234,8 @@ public class ImageCompressor implements AutoCloseable {
     }
 
     private void warnCache(Exception e) {
-        if (!cacheWarning) {
+        if (cacheWarning.compareAndSet(false, true)) {
             warn("Image cache unavailable; continuing image compression. " + e);
-            cacheWarning = true;
         }
     }
 
@@ -129,7 +246,7 @@ public class ImageCompressor implements AutoCloseable {
         Files.write(input, original);
         Files.deleteIfExists(output);
         List<String> command = toolsDirectory.isEmpty()
-                ? new ImageCompressor(BundledImageTools.extract(work).toString()).command(format, input, output)
+                ? new ImageCompressor(bundledTools(work).toString()).command(format, input, output)
                 : command(format, input, output);
         Process process;
         try {

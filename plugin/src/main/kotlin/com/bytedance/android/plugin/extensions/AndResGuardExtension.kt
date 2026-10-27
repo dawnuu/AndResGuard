@@ -17,6 +17,9 @@ open class AndResGuardExtension {
     var imageCompressionToolsDir: String = ""
     // Null uses the root project's .gradle/andresguard/image-cache directory.
     var imageCompressionCacheDir: Path? = null
+    // Images compressed at the same time, which also bounds how many are held in memory.
+    // 0 = CPU count, at most 4; 1 = serial. Override with -PandResGuard.imageCompressionParallelism=...
+    var imageCompressionParallelism: Int = 0
 
     // MD5 mutation config
     var enableMutateMd5: Boolean = false
@@ -105,6 +108,7 @@ open class AndResGuardExtension {
                 "\tenableCompressImages=$enableCompressImages\n" +
                 "\timageCompressionToolsDir=$imageCompressionToolsDir\n" +
                 "\timageCompressionCacheDir=$imageCompressionCacheDir\n" +
+                "\timageCompressionParallelism=$imageCompressionParallelism\n" +
                 "\tenableMutateMd5=$enableMutateMd5\n" +
                 "\tallowDebugSignFallback=$allowDebugSignFallback\n" +
                 "\tmutateMd5Seed=$mutateMd5Seed\n" +

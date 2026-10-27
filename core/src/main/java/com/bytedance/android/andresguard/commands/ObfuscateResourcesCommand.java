@@ -275,7 +275,7 @@ public abstract class ObfuscateResourcesCommand {
         // Compress before obfuscation/MD5 mutation, preserving original image names for exclusions.
         if (getEnableCompressImages().orElse(false)) {
             appBundle = new BundleImageCompressor(getImageCompressionToolsDir().orElse(""),
-                    getImageCompressionCacheDir().orElse(null)).compress(appBundle);
+                    getImageCompressionCacheDir().orElse(null), getImageCompressionParallelism().orElse(0)).compress(appBundle);
         }
 
         // obfuscate bundle
@@ -386,6 +386,9 @@ public abstract class ObfuscateResourcesCommand {
 
     public abstract Optional<Path> getImageCompressionCacheDir();
 
+    /** Threads used for image compression; 0 or absent picks a default from the CPU count. */
+    public abstract Optional<Integer> getImageCompressionParallelism();
+
     public abstract Optional<String> getApkBuildToolsDir();
 
     public abstract Builder toBuilder();
@@ -456,6 +459,8 @@ public abstract class ObfuscateResourcesCommand {
         public abstract Builder setImageCompressionToolsDir(String directory);
 
         public abstract Builder setImageCompressionCacheDir(Path directory);
+
+        public abstract Builder setImageCompressionParallelism(Integer parallelism);
 
         public abstract Builder setApkBuildToolsDir(String directory);
 

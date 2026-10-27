@@ -22,6 +22,7 @@ abstract class AndResGuardWorkAction : WorkAction<AndResGuardWorkAction.Paramete
         val enableCompressImages: Property<Boolean>
         val imageCompressionToolsDir: Property<String>
         val imageCompressionCacheDir: DirectoryProperty
+        val imageCompressionParallelism: Property<Int>
         val apkBuildToolsDir: Property<String>
         val whiteList: SetProperty<String>
         val bundleMetaDataWhiteList: SetProperty<String>
@@ -52,6 +53,7 @@ abstract class AndResGuardWorkAction : WorkAction<AndResGuardWorkAction.Paramete
             .setEnableCompressImages(p.enableCompressImages.get())
             .setImageCompressionToolsDir(p.imageCompressionToolsDir.get())
             .setImageCompressionCacheDir(p.imageCompressionCacheDir.get().asFile.toPath())
+            .setImageCompressionParallelism(p.imageCompressionParallelism.get())
             .setApkBuildToolsDir(p.apkBuildToolsDir.get())
             .setWhiteList(p.whiteList.get()).setBundleMetaDataWhiteList(p.bundleMetaDataWhiteList.get())
             .setFilterFile(p.enableFilterFiles.get()).setFileFilterRules(p.filterList.get())
