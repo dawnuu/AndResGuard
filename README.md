@@ -302,6 +302,8 @@ Release variants require a valid signingConfig. Missing signing configuration fa
 
 Resource processing runs in a separate Gradle worker process by default. The process exits when the build finishes and its memory is released, so org.gradle.jvmargs does not need to be raised for AndResGuard. If a very large AAB hits OutOfMemoryError, raise workerMaxHeapSize.
 
+When the input package, the andResGuard configuration, referenced files (mapping, unused.txt, signing keystore, custom image tools directory) and the signing identity are unchanged, the task is skipped (UP-TO-DATE) and the previous outputs are reused. A file-name template containing {buildTime} produces a new name on every run, so such builds always execute.
+
 #### 1.4 Output locations
 
 Processed files live in the app module's build/outputs/andresguard/. Each format has its own artifact and mapping directory. Android's original outputs are retained. For module app and variant release:

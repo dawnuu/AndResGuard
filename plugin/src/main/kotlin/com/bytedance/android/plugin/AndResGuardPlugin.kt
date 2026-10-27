@@ -30,6 +30,7 @@ class AndResGuardPlugin : Plugin<Project> {
                     task.resourceFormat = format.name.lowercase()
                     task.description = "Build and process ${format.name} resources for ${variant.name}"
                     task.dependsOn(if (format.aab) bundle else apk)
+                    task.trackInputsAndOutputs(extension, format)
                 }
             val aabProcessor = registerProcessor("Aab", ResourceFormat.AAB)
             val apkProcessor = registerProcessor("Apk", ResourceFormat.APK)
