@@ -7,8 +7,8 @@ ext {
                     artifactId : "andresguard",
                     description: "The tool of obfuscated aab resources",
                     packaging  : "jar",
-                    siteUrl    : "https://github.com/dawnuu/AndResGuard",
-                    gitUrl     : "https://github.com/dawnuu/AndResGuard.git",
+                    siteUrl    : "https://github.com/erliangv/AndResGuard",
+                    gitUrl     : "https://github.com/erliangv/AndResGuard.git",
                     userOrg    :  System.getProperty("bintrayInfo.userOrg", "****"),
             ],
             developer: [

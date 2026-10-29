@@ -13,7 +13,7 @@
 | 项目 | AabResGuard | AndResGuard |
 | --- | --- | --- |
 | 插件 ID | `io.github.dawnuu.aabresguard` | `io.github.dawnuu.andresguard` |
-| buildscript 依赖 | `io.github.dawnuu:aabresguard-plugin` | `io.github.dawnuu:andresguard-plugin:1.1.1` |
+| buildscript 依赖 | `io.github.dawnuu:aabresguard-plugin` | `io.github.dawnuu:andresguard-plugin:1.2.0` |
 | 配置块 | `aabResGuard { ... }` | `andResGuard { ... }` |
 | 处理任务 | `aabresguardRelease` | `andresguardRelease` |
 | Kotlin 扩展类型 | `AabResGuardExtension` | `AndResGuardExtension` |
@@ -55,7 +55,7 @@ dependencyResolutionManagement {
 
 ```toml
 [versions]
-andresguard = "1.1.1"
+andresguard = "1.2.0"
 
 [plugins]
 andresguard = { id = "io.github.dawnuu.andresguard", version.ref = "andresguard" }
@@ -87,7 +87,7 @@ plugins {
 >     google()
 >   }
 >   dependencies {
->     classpath "io.github.dawnuu:andresguard-plugin:1.1.1"
+>     classpath "io.github.dawnuu:andresguard-plugin:1.2.0"
 >   }
 > }
 > ```
@@ -107,7 +107,7 @@ plugins {
 >     google()
 >   }
 >   dependencies {
->     classpath("io.github.dawnuu:andresguard-plugin:1.1.1")
+>     classpath("io.github.dawnuu:andresguard-plugin:1.2.0")
 >   }
 > }
 > ```
@@ -357,7 +357,7 @@ Nine-patch（包括带 Android `np*` 块的编译图片）、APNG 和动画 WebP
 ./gradlew :core:shadowJar
 ```
 
-生成 `core/build/libs/AndResGuard-1.1.1.jar`，以下命令按 JAR 已复制为当前目录的 `AndResGuard.jar` 举例。
+生成 `core/build/libs/AndResGuard-1.2.0.jar`，以下命令按 JAR 已复制为当前目录的 `AndResGuard.jar` 举例。
 
 #### 2. 准备配置文件
 

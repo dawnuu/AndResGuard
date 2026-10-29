@@ -13,7 +13,7 @@ Update integration names and the processing command when migrating from AabResGu
 | Item | AabResGuard | AndResGuard |
 | --- | --- | --- |
 | Plugin ID | `io.github.dawnuu.aabresguard` | `io.github.dawnuu.andresguard` |
-| Buildscript dependency | `io.github.dawnuu:aabresguard-plugin` | `io.github.dawnuu:andresguard-plugin:1.1.1` |
+| Buildscript dependency | `io.github.dawnuu:aabresguard-plugin` | `io.github.dawnuu:andresguard-plugin:1.2.0` |
 | Configuration block | `aabResGuard { ... }` | `andResGuard { ... }` |
 | Processing task | `aabresguardRelease` | `andresguardRelease` |
 | Kotlin extension type | `AabResGuardExtension` | `AndResGuardExtension` |
@@ -55,7 +55,7 @@ Declare the version and plugin in gradle/libs.versions.toml:
 
 ```toml
 [versions]
-andresguard = "1.1.1"
+andresguard = "1.2.0"
 
 [plugins]
 andresguard = { id = "io.github.dawnuu.andresguard", version.ref = "andresguard" }
@@ -89,7 +89,7 @@ plugins {
 >     google()
 >   }
 >   dependencies {
->     classpath "io.github.dawnuu:andresguard-plugin:1.1.1"
+>     classpath "io.github.dawnuu:andresguard-plugin:1.2.0"
 >   }
 > }
 > ```
@@ -111,7 +111,7 @@ plugins {
 >     google()
 >   }
 >   dependencies {
->     classpath("io.github.dawnuu:andresguard-plugin:1.1.1")
+>     classpath("io.github.dawnuu:andresguard-plugin:1.2.0")
 >   }
 > }
 > ```
@@ -362,7 +362,7 @@ Bundled macOS tools are not Developer ID-notarized; use imageCompressionToolsDir
 ./gradlew :core:shadowJar
 ```
 
-The JAR is core/build/libs/AndResGuard-1.1.1.jar. Commands below assume it has been copied to the current directory as AndResGuard.jar.
+The JAR is core/build/libs/AndResGuard-1.2.0.jar. Commands below assume it has been copied to the current directory as AndResGuard.jar.
 
 #### 2.2 Prepare the configuration file
 

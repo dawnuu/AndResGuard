@@ -30,7 +30,7 @@ afterEvaluate {
         pom {
             name = projectName
             description = projectDescription
-            url = 'https://github.com/dawnuu/AndResGuard'
+            url = 'https://github.com/erliangv/AndResGuard'
             licenses {
                 license {
                     name = 'Apache License, Version 2.0'
@@ -46,9 +46,9 @@ afterEvaluate {
                 }
             }
             scm {
-                connection = 'scm:git:git://github.com/dawnuu/AndResGuard.git'
-                developerConnection = 'scm:git:ssh://git@github.com/dawnuu/AndResGuard.git'
-                url = 'https://github.com/dawnuu/AndResGuard'
+                connection = 'scm:git:git://github.com/erliangv/AndResGuard.git'
+                developerConnection = 'scm:git:ssh://git@github.com/erliangv/AndResGuard.git'
+                url = 'https://github.com/erliangv/AndResGuard'
             }
         }
     }
